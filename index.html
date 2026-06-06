@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐳 MST</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+  .app { max-width: 1400px; margin: 0 auto; padding: 16px; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 2px solid #e0e0e0; margin-bottom: 16px; }
+  header h1 { font-size: 1.5rem; color: #1a1a2e; }
+  button { cursor: pointer; border: none; border-radius: 6px; padding: 8px 16px; font-size: 0.875rem; transition: all 0.2s; }
+  .btn-primary { background: #2196F3; color: white; }
+  .btn-primary:hover { background: #1976D2; }
+  .btn-danger { background: #f44336; color: white; }
+  .btn-danger:hover { background: #d32f2f; }
+  .btn-secondary { background: #e0e0e0; color: #333; }
+  .btn-secondary:hover { background: #bdbdbd; }
+  .btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+  .tabs { display: flex; gap: 4px; }
+  .tab { padding: 10px 20px; background: #e0e0e0; border-radius: 6px 6px 0 0; font-weight: 500; }
+  .tab.active { background: white; color: #2196F3; }
+  .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .card h2 { font-size: 1.1rem; margin-bottom: 12px; color: #1a1a2e; }
+  input, select { border: 1px solid #ddd; border-radius: 4px; padding: 8px 12px; font-size: 0.875rem; width: 100%; }
+  input:focus, select:focus { outline: none; border-color: #2196F3; box-shadow: 0 0 0 2px rgba(33,150,243,0.2); }
+  .form-row { display: flex; gap: 8px; align-items: end; margin-bottom: 8px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 0.8rem; font-weight: 500; color: #666; }
+  .form-group.flex-1 { flex: 1; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #eee; }
+  th { background: #f5f5f5; font-weight: 600; position: sticky; top: 0; }
+  th:first-child, td:first-child { text-align: left; font-weight: 500; }
+  tr:hover { background: #fafafa; }
+  tr.total-row { font-weight: 700; border-top: 2px solid #333; background: #f9f9f9; }
+  tr.dimmed { opacity: 0.3; }
+  tr.highlighted { background: #e3f2fd; }
+  .account-list { display: flex; flex-direction: column; gap: 6px; }
+  .account-item { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid #eee; border-radius: 6px; }
+  .account-name { flex: 1; font-weight: 500; }
+  .snapshot-grid { display: flex; flex-direction: column; gap: 8px; }
+  .snapshot-row { display: flex; align-items: center; gap: 8px; }
+  .snapshot-row label { font-weight: 500; min-width: 200px; }
+  .snapshot-row input { max-width: 150px; }
+  .chart-container { width: 100%; }
+  .table-scroll { overflow-x: auto; }
+  .auth-container { max-width: 360px; margin: 80px auto; }
+  .auth-container h2 { text-align: center; margin-bottom: 16px; }
+  .auth-container .form-group { margin-bottom: 12px; }
+  .auth-container button { width: 100%; margin-top: 8px; }
+  .auth-toggle { text-align: center; margin-top: 12px; color: #666; font-size: 0.85rem; }
+  .auth-toggle a { color: #2196F3; cursor: pointer; text-decoration: underline; }
+  .error { color: #f44336; font-size: 0.85rem; margin-top: 4px; }
+  .success { color: #4CAF50; font-size: 0.85rem; margin-top: 4px; }
+  .loading { text-align: center; padding: 40px; color: #999; }
+  .empty-state { text-align: center; padding: 40px; color: #999; }
+  .inline-edit { display: flex; gap: 4px; align-items: center; }
+  .inline-edit input { width: auto; }
+  input[type="color"] { width: 36px; height: 36px; padding: 2px; cursor: pointer; }
+  .existing-dates { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .chip { padding: 4px 10px; background: #e3f2fd; border-radius: 12px; font-size: 0.8rem; cursor: pointer; border: none; }
+  .chip:hover { background: #bbdefb; }
+  .chip.active { background: #2196F3; color: white; }
+
+  /* Stock-tracker style controls */
+  .sticky-controls { position: sticky; top: 0; z-index: 100; padding-top: 8px; padding-bottom: 4px; background: #f5f5f5; }
+  .dashboard-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 8px; padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .control-group { display: flex; align-items: center; gap: 6px; }
+  .control-group-label { font-size: 0.75rem; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+  .range-btn { padding: 5px 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8rem; font-weight: 600; color: #555; }
+  .range-btn:hover { background: #e0e0e0; border-color: #bbb; }
+  .range-btn.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+
+  /* Account legend / selector */
+  .account-legend { display: flex; flex-wrap: wrap; gap: 6px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 14px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+  .legend-item:hover { transform: translateY(-1px); }
+  .legend-item.selected { border-color: currentColor; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .legend-item.dimmed { opacity: 0.3; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* Chart card dark header */
+  .chart-card { background: white; border-radius: 8px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+  .chart-card-header { padding: 16px 20px 0; display: flex; justify-content: space-between; align-items: center; }
+  .chart-card-header h2 { font-size: 1.1rem; color: #1a1a2e; margin: 0; }
+  .chart-card-body { padding: 12px 8px 16px; }
+
+  /* Summary stats */
+  .stats-row { display: flex; gap: 24px; padding: 0 20px 16px; }
+  .stat { display: flex; flex-direction: column; }
+  .stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1a2e; }
+  .stat-label { font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-change { font-size: 0.85rem; font-weight: 600; }
+  .stat-change.positive { color: #4CAF50; }
+  .stat-change.negative { color: #f44336; }
+
+  /* Projections */
+  .projections-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .projections-table th, .projections-table td { padding: 10px 14px; text-align: right; border-bottom: 1px solid #eee; }
+  .projections-table th { background: #f8f9fa; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #999; }
+  .projections-table th:first-child, .projections-table td:first-child { text-align: left; }
+  .projections-table .scenario-label { font-weight: 500; color: #666; white-space: nowrap; }
+  .projections-table .conservative { color: #FF9800; }
+  .projections-table .expected { color: #2196F3; font-weight: 600; }
+  .projections-table .optimistic { color: #4CAF50; }
+  .projections-table .growth-rate { font-size: 0.75rem; color: #999; font-weight: 400; }
+  .projection-toggle { padding: 6px 14px; background: #f0f0f0; border: 2px solid #ddd; border-radius: 6px; font-size: 0.8rem; font-weight: 600; color: #555; }
+  .projection-toggle:hover { background: #e0e0e0; }
+  .projection-toggle.active { background: #e8f5e9; border-color: #4CAF50; color: #2e7d32; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "recharts": "https://esm.sh/recharts@2.15.3?deps=react@18.3.1,react-dom@18.3.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "htm": "https://esm.sh/htm@3.1.1"
+  }
+}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import { createElement, useState, useEffect, useCallback, useMemo } from 'react';
+import { createRoot } from 'react-dom/client';
+import htm from 'htm';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, Area, ComposedChart, ReferenceLine } from 'recharts';
+import { createClient } from '@supabase/supabase-js';
+
+const html = htm.bind(createElement);
+
+// ── Supabase Config ──────────────────────────────────────────────
+
+const SUPABASE_URL = 'https://cnkznpkvwoqxaiywwmhr.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_xlNQ_QudJNUlMLjWpr0iJA_YgO87tox';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: 'savings' } });
+
+// ── Formatting Helpers ───────────────────────────────────────────
+
+const GBP = (v) => v == null ? '' : '£' + Number(v).toLocaleString('en-GB', { maximumFractionDigits: 0 });
+
+function fmtDate(d) {
+  const dt = new Date(d + 'T00:00:00');
+  const m = dt.toLocaleString('en-GB', { month: 'short' });
+  const y = String(dt.getFullYear()).slice(2);
+  return m + ' ' + y;
+}
+
+const DEFAULT_COLORS = ['#00BCD4','#4CAF50','#9E9E9E','#FF9800','#F44336','#9C27B0','#2196F3','#E91E63','#795548','#607D8B'];
+const CATEGORIES = ['Cash', 'Available Assets', 'Restricted Assets'];
+
+const TIME_RANGES = [
+  { id: '1M', label: '1M', months: 1 },
+  { id: '3M', label: '3M', months: 3 },
+  { id: '1Y', label: '1Y', months: 12 },
+  { id: '2Y', label: '2Y', months: 24 },
+  { id: '5Y', label: '5Y', months: 60 },
+  { id: 'ALL', label: 'All', months: null },
+];
+
+function getDateCutoff(rangeId) {
+  const range = TIME_RANGES.find(r => r.id === rangeId);
+  if (!range || !range.months) return null;
+  const d = new Date();
+  d.setMonth(d.getMonth() - range.months);
+  return d.toISOString().slice(0, 10);
+}
+
+// ── Auth Screen ──────────────────────────────────────────────────
+
+function AuthScreen({ supabase }) {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(''); setMessage(''); setLoading(true);
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setMessage('Check your email to confirm your account.');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+    setLoading(false);
+  };
+
+  return html`<div class="auth-container"><div class="card">
+    <h2>${isSignUp ? 'Create Account' : 'Sign In'}</h2>
+    <form onSubmit=${handleSubmit}>
+      <div class="form-group"><label>Email</label>
+        <input type="email" value=${email} onInput=${e => setEmail(e.target.value)} required />
+      </div>
+      <div class="form-group"><label>Password</label>
+        <input type="password" value=${password} onInput=${e => setPassword(e.target.value)} required minLength="6" />
+      </div>
+      ${error && html`<div class="error">${error}</div>`}
+      ${message && html`<div class="success">${message}</div>`}
+      <button class="btn-primary" type="submit" disabled=${loading}>${loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}</button>
+    </form>
+    <div class="auth-toggle">
+      ${isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+      <a onClick=${() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}>${isSignUp ? 'Sign In' : 'Sign Up'}</a>
+    </div>
+  </div></div>`;
+}
+
+// ── Hooks ────────────────────────────────────────────────────────
+
+function useAccounts(supabase, userId) {
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    const { data } = await supabase.from('accounts').select('*').order('display_order');
+    setAccounts(data || []);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const add = async (name, color, owner, category) => {
+    const order = accounts.length;
+    await supabase.from('accounts').insert({ user_id: userId, name, color, owner, category, display_order: order });
+    await fetch();
+  };
+
+  const update = async (id, fields) => {
+    await supabase.from('accounts').update(fields).eq('id', id);
+    await fetch();
+  };
+
+  const remove = async (id) => {
+    await supabase.from('accounts').delete().eq('id', id);
+    await fetch();
+  };
+
+  return { accounts, loading, add, update, remove, refresh: fetch };
+}
+
+function useSnapshots(supabase, userId) {
+  const [snapshots, setSnapshots] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    const { data } = await supabase.from('snapshots').select('*').order('date');
+    setSnapshots(data || []);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const upsert = async (accountId, date, amount) => {
+    const existing = snapshots.find(s => s.account_id === accountId && s.date === date);
+    if (existing) {
+      await supabase.from('snapshots').update({ amount }).eq('id', existing.id);
+    } else {
+      await supabase.from('snapshots').insert({ user_id: userId, account_id: accountId, date, amount });
+    }
+  };
+
+  const saveBatch = async (date, entries) => {
+    for (const { accountId, amount } of entries) {
+      if (amount !== '' && amount != null) {
+        await upsert(accountId, date, Number(amount));
+      }
+    }
+    await fetch();
+  };
+
+  const remove = async (id) => {
+    await supabase.from('snapshots').delete().eq('id', id);
+    await fetch();
+  };
+
+  return { snapshots, loading, saveBatch, remove, refresh: fetch };
+}
+
+function useOwners(supabase) {
+  const [owners, setOwners] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    const { data } = await supabase.from('owners').select('*').order('created_at');
+    setOwners(data || []);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const add = async (name) => {
+    await supabase.from('owners').insert({ name });
+    await fetch();
+  };
+
+  const remove = async (id) => {
+    await supabase.from('owners').delete().eq('id', id);
+    await fetch();
+  };
+
+  return { owners, loading, add, remove, refresh: fetch };
+}
+
+// ── Account Manager ──────────────────────────────────────────────
+
+function AccountManager({ accounts, owners, onAdd, onUpdate, onRemove }) {
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(DEFAULT_COLORS[0]);
+  const [owner, setOwner] = useState(owners[0] || 'Joint');
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [newOwner, setNewOwner] = useState('');
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState('');
+
+  const handleAdd = () => {
+    if (!name.trim()) return;
+    const finalOwner = owner === '__new__' ? newOwner.trim() : owner;
+    if (!finalOwner) return;
+    onAdd(name.trim(), color, finalOwner, category);
+    setName('');
+    setNewOwner('');
+    setColor(DEFAULT_COLORS[(accounts.length + 1) % DEFAULT_COLORS.length]);
+  };
+
+  const startEdit = (a) => { setEditId(a.id); setEditName(a.name); };
+  const saveEdit = (id) => { onUpdate(id, { name: editName }); setEditId(null); };
+
+  const grouped = useMemo(() => {
+    const groups = {};
+    for (const cat of CATEGORIES) groups[cat] = [];
+    for (const a of accounts) {
+      const cat = a.category || 'Cash';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(a);
+    }
+    return groups;
+  }, [accounts]);
+
+  return html`<div class="card">
+    <h2>Accounts</h2>
+    <div class="form-row" style=${{ marginBottom: '16px' }}>
+      <div class="form-group flex-1">
+        <label>Account Name</label>
+        <input value=${name} onInput=${e => setName(e.target.value)} placeholder="e.g. Halifax Current"
+          onKeyDown=${e => e.key === 'Enter' && handleAdd()} />
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select value=${category} onChange=${e => setCategory(e.target.value)} style=${{ width: 160 }}>
+          ${CATEGORIES.map(c => html`<option key=${c} value=${c}>${c}</option>`)}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Owner</label>
+        <select value=${owner} onChange=${e => setOwner(e.target.value)} style=${{ width: 140 }}>
+          ${owners.map(o => html`<option key=${o} value=${o}>${o}</option>`)}
+          <option value="__new__">+ New owner</option>
+        </select>
+      </div>
+      ${owner === '__new__' && html`<div class="form-group">
+        <label>New Owner Name</label>
+        <input value=${newOwner} onInput=${e => setNewOwner(e.target.value)} placeholder="Name" style=${{ width: 120 }} />
+      </div>`}
+      <div class="form-group">
+        <label>Color</label>
+        <input type="color" value=${color} onInput=${e => setColor(e.target.value)} />
+      </div>
+      <button class="btn-primary" onClick=${handleAdd}>Add</button>
+    </div>
+    ${CATEGORIES.map(cat => {
+      const items = grouped[cat] || [];
+      return html`<div key=${cat} style=${{ marginBottom: 12 }}>
+        <div style=${{ fontSize: '0.8rem', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid #eee' }}>${cat}</div>
+        <div class="account-list">
+          ${items.map(a => html`<div class="account-item" key=${a.id}>
+            <input type="color" value=${a.color}
+              onInput=${e => onUpdate(a.id, { color: e.target.value })} style=${{ width: 32, height: 32, border: 'none', cursor: 'pointer' }} />
+            ${editId === a.id
+              ? html`<div class="inline-edit">
+                  <input value=${editName} onInput=${e => setEditName(e.target.value)}
+                    onKeyDown=${e => e.key === 'Enter' && saveEdit(a.id)} style=${{ width: 200 }} />
+                  <button class="btn-primary btn-sm" onClick=${() => saveEdit(a.id)}>Save</button>
+                  <button class="btn-secondary btn-sm" onClick=${() => setEditId(null)}>Cancel</button>
+                </div>`
+              : html`<span class="account-name" style=${a.hidden ? { opacity: 0.5, textDecoration: 'line-through' } : {}} onDblClick=${() => startEdit(a)}>${a.name}</span>`
+            }
+            <select value=${a.category || 'Cash'} onChange=${e => onUpdate(a.id, { category: e.target.value })} style=${{ width: 150, flex: 'none' }}>
+              ${CATEGORIES.map(c => html`<option key=${c} value=${c}>${c}</option>`)}
+            </select>
+            <select value=${a.owner || 'Joint'} onChange=${e => onUpdate(a.id, { owner: e.target.value })} style=${{ width: 120, flex: 'none' }}>
+              ${owners.map(o => html`<option key=${o} value=${o}>${o}</option>`)}
+            </select>
+            <button class="btn-secondary btn-sm" onClick=${() => startEdit(a)}>Rename</button>
+            <button class="btn-secondary btn-sm" onClick=${() => onUpdate(a.id, { hidden: !a.hidden })}
+              style=${a.hidden ? { opacity: 0.7 } : {}}>${a.hidden ? 'Show' : 'Hide'}</button>
+          </div>`)}
+          ${items.length === 0 && html`<div style=${{ fontSize: '0.85rem', color: '#bbb', padding: '4px 8px' }}>No accounts</div>`}
+        </div>
+      </div>`;
+    })}
+  </div>`;
+}
+
+// ── Owner Manager ────────────────────────────────────────────────
+
+function OwnerManager({ owners, accounts, onAdd, onRemove }) {
+  const [name, setName] = useState('');
+
+  const handleAdd = () => {
+    if (!name.trim()) return;
+    if (owners.some(o => o.name.toLowerCase() === name.trim().toLowerCase())) return;
+    onAdd(name.trim());
+    setName('');
+  };
+
+  const accountCountByOwner = useMemo(() => {
+    const counts = {};
+    for (const a of accounts) {
+      const o = a.owner || 'Joint';
+      counts[o] = (counts[o] || 0) + 1;
+    }
+    return counts;
+  }, [accounts]);
+
+  return html`<div class="card">
+    <h2>Owners</h2>
+    <div class="form-row" style=${{ marginBottom: 16 }}>
+      <div class="form-group flex-1">
+        <label>New Owner</label>
+        <input value=${name} onInput=${e => setName(e.target.value)} placeholder="e.g. Alex"
+          onKeyDown=${e => e.key === 'Enter' && handleAdd()} />
+      </div>
+      <button class="btn-primary" onClick=${handleAdd}>Add</button>
+    </div>
+    <div class="account-list">
+      ${owners.map(o => {
+        const count = accountCountByOwner[o.name] || 0;
+        return html`<div class="account-item" key=${o.id}>
+          <span class="account-name">${o.name}</span>
+          <span style=${{ fontSize: '0.8rem', color: '#999' }}>${count} account${count !== 1 ? 's' : ''}</span>
+          ${count === 0
+            ? html`<button class="btn-danger btn-sm" onClick=${() => { if (confirm('Delete owner "' + o.name + '"?')) onRemove(o.id); }}>Delete</button>`
+            : html`<button class="btn-secondary btn-sm" disabled style=${{ opacity: 0.4, cursor: 'not-allowed' }} title="Reassign accounts first">Delete</button>`
+          }
+        </div>`;
+      })}
+      ${owners.length === 0 && html`<div class="empty-state">No owners yet.</div>`}
+    </div>
+  </div>`;
+}
+
+// ── Snapshot Entry ───────────────────────────────────────────────
+
+function SnapshotEntry({ accounts, snapshots, onSave }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [values, setValues] = useState({});
+  const [defaulted, setDefaulted] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const dates = useMemo(() => [...new Set(snapshots.map(s => s.date))].sort(), [snapshots]);
+
+  const lastSnapshotValues = useMemo(() => {
+    const result = {};
+    const sortedDates = [...dates].sort();
+    for (const a of accounts) {
+      for (let i = sortedDates.length - 1; i >= 0; i--) {
+        const snap = snapshots.find(s => s.date === sortedDates[i] && s.account_id === a.id);
+        if (snap && Number(snap.amount) > 0) {
+          result[a.id] = { value: String(snap.amount), fromDate: sortedDates[i] };
+          break;
+        }
+      }
+    }
+    return result;
+  }, [accounts, snapshots, dates]);
+
+  useEffect(() => {
+    const existing = {};
+    const isDefaulted = {};
+    let hasExisting = false;
+    for (const s of snapshots) {
+      if (s.date === date) { existing[s.account_id] = String(s.amount); hasExisting = true; }
+    }
+    if (hasExisting) {
+      setValues(existing);
+      setDefaulted({});
+    } else {
+      const vals = {};
+      const defs = {};
+      for (const a of accounts) {
+        const last = lastSnapshotValues[a.id];
+        if (last) { vals[a.id] = last.value; defs[a.id] = last.fromDate; }
+      }
+      setValues(vals);
+      setDefaulted(defs);
+    }
+  }, [date, snapshots, accounts, lastSnapshotValues]);
+
+  const handleInput = (accountId, val) => {
+    setValues({ ...values, [accountId]: val });
+    const newDefaulted = { ...defaulted };
+    delete newDefaulted[accountId];
+    setDefaulted(newDefaulted);
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setMessage('');
+    const entries = accounts.map(a => ({ accountId: a.id, amount: values[a.id] || '' })).filter(e => e.amount !== '');
+    if (entries.length === 0) { setMessage('Enter at least one value.'); setSaving(false); return; }
+    await onSave(date, entries);
+    setMessage('Saved!');
+    setDefaulted({});
+    setSaving(false);
+    setTimeout(() => setMessage(''), 2000);
+  };
+
+  const hasDefaults = Object.keys(defaulted).length > 0;
+
+  return html`<div class="card">
+    <h2>Enter Snapshot</h2>
+    <div class="form-group" style=${{ maxWidth: 220, marginBottom: 12 }}>
+      <label>Date</label>
+      <input type="date" value=${date} onInput=${e => setDate(e.target.value)} />
+    </div>
+    ${dates.length > 0 && html`<div style=${{ marginBottom: 12 }}>
+      <span style=${{ fontSize: '0.8rem', color: '#666' }}>Existing dates: </span>
+      <div class="existing-dates">
+        ${dates.map(d => html`<span key=${d} class=${'chip' + (d === date ? ' active' : '')}
+          onClick=${() => setDate(d)}>${fmtDate(d)}</span>`)}
+      </div>
+    </div>`}
+    ${hasDefaults && html`<div style=${{ fontSize: '0.8rem', color: '#FF9800', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style=${{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#FF9800' }}></span>
+      Values pre-filled from last snapshot. Edit any field to override.
+    </div>`}
+    <div class="snapshot-grid">
+      ${accounts.map(a => html`<div key=${a.id} class="snapshot-row">
+        <label><span style=${{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: a.color, marginRight: 6 }}></span>${a.name}</label>
+        <div style=${{ position: 'relative' }}>
+          <input type="number" placeholder="0" value=${values[a.id] || ''}
+            onInput=${e => handleInput(a.id, e.target.value)}
+            style=${defaulted[a.id] ? { borderColor: '#FF9800', background: '#FFF8E1' } : {}} />
+          ${defaulted[a.id] && html`<span style=${{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#FF9800', pointerEvents: 'none' }}>
+            ${fmtDate(defaulted[a.id])}
+          </span>`}
+        </div>
+      </div>`)}
+    </div>
+    ${accounts.length === 0 && html`<div class="empty-state">Add accounts first in the Accounts tab.</div>`}
+    <div style=${{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+      <button class="btn-primary" onClick=${handleSave} disabled=${saving || accounts.length === 0}>${saving ? 'Saving...' : 'Save Snapshot'}</button>
+      ${message && html`<span class="success">${message}</span>`}
+    </div>
+  </div>`;
+}
+
+// ── Data Transform ───────────────────────────────────────────────
+
+function buildChartData(accounts, snapshots, cutoffDate) {
+  const dates = [...new Set(snapshots.map(s => s.date))].sort();
+  const filtered = cutoffDate ? dates.filter(d => d >= cutoffDate) : dates;
+  return filtered.map(date => {
+    const row = { date, dateLabel: fmtDate(date) };
+    let total = 0;
+    for (const a of accounts) {
+      const snap = snapshots.find(s => s.date === date && s.account_id === a.id);
+      const val = snap ? Number(snap.amount) : 0;
+      row[a.id] = val;
+      total += val;
+    }
+    row.total = total;
+    return row;
+  });
+}
+
+// ── Account Legend ───────────────────────────────────────────────
+
+function AccountLegend({ accounts, selectedId, onSelect }) {
+  const handleClick = (id) => {
+    onSelect(selectedId === id ? null : id);
+  };
+
+  return html`<div class="account-legend">
+    <div class=${'legend-item' + (selectedId === null ? ' selected' : selectedId ? ' dimmed' : '')}
+      onClick=${() => onSelect(null)}
+      style=${{ background: '#f0f0f0', color: '#1a1a2e' }}>
+      <span class="legend-dot" style=${{ background: '#1a1a2e' }}></span>
+      Total
+    </div>
+    ${accounts.map(a => {
+      const isSelected = selectedId === a.id;
+      const isDimmed = selectedId !== null && !isSelected;
+      return html`<div key=${a.id}
+        class=${'legend-item' + (isSelected ? ' selected' : '') + (isDimmed ? ' dimmed' : '')}
+        onClick=${() => handleClick(a.id)}
+        style=${{ background: a.color + '20', color: a.color }}>
+        <span class="legend-dot" style=${{ background: a.color }}></span>
+        ${a.name}
+      </div>`;
+    })}
+  </div>`;
+}
+
+// ── Projection Chart Data ────────────────────────────────────────
+
+function buildProjectionData(chartData, accounts, snapshots, selectedId) {
+  const proj = calcProjections(accounts, snapshots, selectedId);
+  if (!proj || chartData.length === 0) return null;
+
+  const last = chartData[chartData.length - 1];
+  const lastDate = new Date(last.date);
+  const currentValue = proj.currentValue;
+
+  const conservativeRate = proj.scenarios[0].rate;
+  const expectedRate = proj.scenarios[1].rate;
+  const optimisticRate = proj.scenarios[2].rate;
+
+  const points = [{ date: last.date, dateLabel: last.dateLabel, proj_expected: currentValue, proj_low: currentValue, proj_high: currentValue }];
+
+  const steps = [0.25, 0.5, 1, 2, 3, 5, 7, 10];
+  for (const years of steps) {
+    const d = new Date(lastDate);
+    d.setDate(d.getDate() + Math.round(years * 365.25));
+    const dateStr = d.toISOString().slice(0, 10);
+    points.push({
+      date: dateStr,
+      dateLabel: fmtDate(dateStr),
+      proj_expected: currentValue * Math.pow(1 + expectedRate, years),
+      proj_low: currentValue * Math.pow(1 + conservativeRate, years),
+      proj_high: currentValue * Math.pow(1 + optimisticRate, years),
+    });
+  }
+  return points;
+}
+
+// ── Line Chart ───────────────────────────────────────────────────
+
+function SavingsLineChart({ accounts, data, selectedId, projectionData }) {
+  if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload) return null;
+    const sorted = [...payload].filter(p => p.value != null).sort((a, b) => (b.value || 0) - (a.value || 0));
+    return html`<div style=${{ background: '#1a1a2e', border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: '0.82rem', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+      <div style=${{ fontWeight: 600, marginBottom: 6, color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }}>${label}</div>
+      ${sorted.map(p => html`<div key=${p.dataKey} style=${{ display: 'flex', justifyContent: 'space-between', gap: 20, padding: '2px 0' }}>
+        <span style=${{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style=${{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }}></span>
+          ${p.name}
+        </span>
+        <span style=${{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>${GBP(p.value)}</span>
+      </div>`)}
+    </div>`;
+  };
+
+  const mergedData = useMemo(() => {
+    if (!projectionData) return data;
+    const combined = data.map(d => ({ ...d }));
+    for (const p of projectionData) {
+      const existing = combined.find(d => d.date === p.date);
+      if (existing) {
+        existing.proj_expected = p.proj_expected;
+        existing.proj_range = [p.proj_low, p.proj_high];
+      } else {
+        combined.push({ dateLabel: p.dateLabel, date: p.date, proj_expected: p.proj_expected, proj_range: [p.proj_low, p.proj_high] });
+      }
+    }
+    combined.sort((a, b) => a.date.localeCompare(b.date));
+    return combined;
+  }, [data, projectionData]);
+
+  return html`<div class="chart-container">
+    <${ResponsiveContainer} width="100%" height=${400}>
+      <${ComposedChart} data=${mergedData} margin=${{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <${CartesianGrid} strokeDasharray="3 3" stroke="#eee" />
+        <${XAxis} dataKey="dateLabel" tick=${{ fontSize: 12, fill: '#999' }} axisLine=${{ stroke: '#ddd' }} tickLine=${false} />
+        <${YAxis} tickFormatter=${GBP} tick=${{ fontSize: 12, fill: '#999' }} axisLine=${false} tickLine=${false} width=${80} />
+        <${Tooltip} content=${html`<${CustomTooltip} />`} trigger="click" />
+        ${projectionData && html`<${Area} type="monotone" dataKey="proj_range" stroke="none" fill="#2196F3" fillOpacity=${0.12} name="Projection range" dot=${false} activeDot=${false} connectNulls=${true} />`}
+        ${accounts.map(a => {
+          const isHighlighted = selectedId === null || selectedId === a.id;
+          return html`<${Line} key=${a.id} type="monotone" dataKey=${a.id} name=${a.name}
+            stroke=${a.color} strokeWidth=${selectedId === a.id ? 3 : 2}
+            strokeOpacity=${isHighlighted ? 1 : 0.15}
+            dot=${isHighlighted ? { r: selectedId === a.id ? 5 : 3, fill: a.color, strokeWidth: 0 } : false}
+            activeDot=${isHighlighted ? { r: 7, strokeWidth: 2, stroke: '#fff', cursor: 'pointer' } : false} connectNulls=${false} />`;
+        })}
+        <${Line} type="monotone" dataKey="total" name="Total"
+          stroke="#1a1a2e" strokeWidth=${selectedId === null ? 3 : 2}
+          strokeOpacity=${selectedId === null ? 1 : 0.15}
+          strokeDasharray=${selectedId === null ? '' : '4 4'}
+          dot=${selectedId === null ? { r: 4, fill: '#1a1a2e', strokeWidth: 0 } : false} connectNulls=${false} />
+        ${projectionData && html`<${Line} type="monotone" dataKey="proj_expected" name="Expected projection"
+          stroke="#2196F3" strokeWidth=${2} strokeDasharray="6 4" dot=${false}
+          activeDot=${{ r: 5, fill: '#2196F3' }} connectNulls=${true} />
+        <${Line} type="monotone" dataKey="proj_high" name="Optimistic"
+          stroke="#4CAF50" strokeWidth=${1.5} strokeDasharray="4 4" dot=${false}
+          activeDot=${{ r: 4, fill: '#4CAF50' }} connectNulls=${true} />
+        <${Line} type="monotone" dataKey="proj_low" name="Conservative"
+          stroke="#FF9800" strokeWidth=${1.5} strokeDasharray="4 4" dot=${false}
+          activeDot=${{ r: 4, fill: '#FF9800' }} connectNulls=${true} />`}
+      <//>
+    <//>
+  </div>`;
+}
+
+// ── Stacked Bar Chart ────────────────────────────────────────────
+
+function SavingsBarChart({ accounts, data, selectedId }) {
+  if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
+
+  const renderLabel = (props) => {
+    const { x, y, width, height, value } = props;
+    if (!value || height < 16 || width < 30) return null;
+    return html`<text x=${x + width / 2} y=${y + height / 2} fill="white" textAnchor="middle" dominantBaseline="middle"
+      fontSize=${width < 50 ? 9 : 11} fontWeight="500">${GBP(value)}</text>`;
+  };
+
+  return html`<div class="chart-container">
+    <${ResponsiveContainer} width="100%" height=${500}>
+      <${BarChart} data=${data} margin=${{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <${CartesianGrid} strokeDasharray="3 3" stroke="#eee" />
+        <${XAxis} dataKey="dateLabel" tick=${{ fontSize: 11, fill: '#999' }} axisLine=${{ stroke: '#ddd' }} tickLine=${false} />
+        <${YAxis} tickFormatter=${GBP} tick=${{ fontSize: 12, fill: '#999' }} axisLine=${false} tickLine=${false} width=${80} />
+        <${Tooltip} formatter=${(v, name) => [GBP(v), name]} trigger="click"
+          contentStyle=${{ background: '#1a1a2e', border: 'none', borderRadius: 8, color: '#fff' }}
+          labelStyle=${{ color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }} />
+        ${accounts.map(a => {
+          const isHighlighted = selectedId === null || selectedId === a.id;
+          return html`<${Bar} key=${a.id} dataKey=${a.id} name=${a.name} stackId="stack"
+            fill=${a.color} fillOpacity=${isHighlighted ? 1 : 0.15}>
+            ${isHighlighted && html`<${LabelList} dataKey=${a.id} content=${renderLabel} />`}
+          <//>`;
+        })}
+      <//>
+    <//>
+  </div>`;
+}
+
+// ── Data Table ───────────────────────────────────────────────────
+
+function DataTable({ accounts, data, selectedId }) {
+  if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
+
+  return html`<div class="table-scroll">
+    <table>
+      <thead><tr>
+        <th style=${{ textAlign: 'left' }}>Date</th>
+        ${accounts.map(a => {
+          const isHighlighted = selectedId === a.id;
+          const isDimmed = selectedId !== null && !isHighlighted;
+          return html`<th key=${a.id} style=${{ opacity: isDimmed ? 0.3 : 1 }}>
+            <span style=${{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: a.color, marginRight: 4 }}></span>
+            ${a.name}
+          </th>`;
+        })}
+        <th style=${{ opacity: selectedId !== null ? 0.3 : 1 }}>Total</th>
+      </tr></thead>
+      <tbody>
+        ${[...data].reverse().map(d => html`<tr key=${d.date}>
+          <td style=${{ textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>${d.dateLabel}</td>
+          ${accounts.map(a => {
+            const isHighlighted = selectedId === a.id;
+            const isDimmed = selectedId !== null && !isHighlighted;
+            return html`<td key=${a.id} class=${isHighlighted ? 'highlighted' : isDimmed ? 'dimmed' : ''}>${d[a.id] ? Number(d[a.id]).toLocaleString('en-GB') : '0'}</td>`;
+          })}
+          <td class=${selectedId !== null ? 'dimmed' : ''} style=${{ fontWeight: 600 }}>${GBP(d.total)}</td>
+        </tr>`)}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ── Projections ──────────────────────────────────────────────────
+
+const PROJECTION_HORIZONS = [
+  { label: '+3 months', years: 0.25 },
+  { label: '+1 year', years: 1 },
+  { label: '+2 years', years: 2 },
+  { label: '+5 years', years: 5 },
+  { label: '+10 years', years: 10 },
+];
+
+function calcProjections(accounts, snapshots, selectedId) {
+  const accountIds = selectedId ? [selectedId] : accounts.map(a => a.id);
+  const dates = [...new Set(snapshots.map(s => s.date))].sort();
+  if (dates.length < 2) return null;
+
+  const getTotal = (date) => {
+    let sum = 0;
+    for (const id of accountIds) {
+      const snap = snapshots.find(s => s.date === date && s.account_id === id);
+      if (snap) sum += Number(snap.amount);
+    }
+    return sum;
+  };
+
+  const latestDate = dates[dates.length - 1];
+  const currentValue = getTotal(latestDate);
+  if (currentValue <= 0) return null;
+
+  const annualGrowthRates = [];
+  for (let i = 1; i < dates.length; i++) {
+    const prev = getTotal(dates[i - 1]);
+    const curr = getTotal(dates[i]);
+    if (prev <= 0) continue;
+    const d0 = new Date(dates[i - 1]);
+    const d1 = new Date(dates[i]);
+    const years = (d1 - d0) / (365.25 * 24 * 60 * 60 * 1000);
+    if (years < 0.01) continue;
+    const annualized = Math.pow(curr / prev, 1 / years) - 1;
+    if (isFinite(annualized) && annualized > -0.9 && annualized < 5) {
+      annualGrowthRates.push(annualized);
+    }
+  }
+
+  if (annualGrowthRates.length < 2) return null;
+
+  const sorted = [...annualGrowthRates].sort((a, b) => a - b);
+  const percentile = (arr, p) => {
+    const idx = (arr.length - 1) * p;
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    if (lo === hi) return arr[lo];
+    return arr[lo] + (arr[hi] - arr[lo]) * (idx - lo);
+  };
+
+  const conservativeRate = percentile(sorted, 0.25);
+  const expectedRate = percentile(sorted, 0.5);
+  const optimisticRate = percentile(sorted, 0.75);
+
+  const project = (rate, years) => currentValue * Math.pow(1 + rate, years);
+
+  return {
+    currentValue,
+    latestDate: fmtDate(latestDate),
+    scenarios: [
+      { name: 'Conservative', rate: conservativeRate, cls: 'conservative',
+        values: PROJECTION_HORIZONS.map(h => project(conservativeRate, h.years)) },
+      { name: 'Expected', rate: expectedRate, cls: 'expected',
+        values: PROJECTION_HORIZONS.map(h => project(expectedRate, h.years)) },
+      { name: 'Optimistic', rate: optimisticRate, cls: 'optimistic',
+        values: PROJECTION_HORIZONS.map(h => project(optimisticRate, h.years)) },
+    ]
+  };
+}
+
+function ProjectionsCard({ accounts, snapshots, selectedId }) {
+  const projections = useMemo(() => calcProjections(accounts, snapshots, selectedId), [accounts, snapshots, selectedId]);
+
+  if (!projections) return html`<div class="card"><h2>Projections</h2><div class="empty-state">Not enough data to project.</div></div>`;
+
+  const label = selectedId ? accounts.find(a => a.id === selectedId)?.name : 'Total';
+
+  return html`<div class="card">
+    <h2>Projections</h2>
+    <div style=${{ fontSize: '0.8rem', color: '#999', marginBottom: 12 }}>
+      Based on historical growth rates for <strong style=${{ color: '#333' }}>${label}</strong> (current: ${GBP(projections.currentValue)} as of ${projections.latestDate})
+    </div>
+    <table class="projections-table">
+      <thead><tr>
+        <th>Scenario</th>
+        <th>Annual Rate</th>
+        ${PROJECTION_HORIZONS.map(h => html`<th key=${h.label}>${h.label}</th>`)}
+      </tr></thead>
+      <tbody>
+        ${projections.scenarios.map(s => html`<tr key=${s.name}>
+          <td class=${'scenario-label ' + s.cls}>${s.name}</td>
+          <td class=${s.cls}><span class="growth-rate">${(s.rate * 100).toFixed(1)}% p.a.</span></td>
+          ${s.values.map((v, i) => html`<td key=${i} class=${s.cls}>${GBP(v)}</td>`)}
+        </tr>`)}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ── Dashboard ────────────────────────────────────────────────────
+
+function Dashboard({ supabase, userId, userEmail, onLogout }) {
+  const { accounts, loading: accLoading, add: addAccount, update: updateAccount, remove: removeAccount } = useAccounts(supabase, userId);
+  const { snapshots, loading: snapLoading, saveBatch } = useSnapshots(supabase, userId);
+  const { owners: ownerRecords, loading: ownersLoading, add: addOwner, remove: removeOwner } = useOwners(supabase);
+  const [tab, setTab] = useState('dashboard');
+  const [ownerFilter, setOwnerFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [timeRange, setTimeRange] = useState('ALL');
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [showProjections, setShowProjections] = useState(false);
+
+  const ownerNames = useMemo(() => ownerRecords.map(o => o.name), [ownerRecords]);
+
+  const visibleAccounts = useMemo(() => accounts.filter(a => !a.hidden), [accounts]);
+
+  const filteredAccounts = useMemo(() =>
+    visibleAccounts.filter(a => {
+      if (ownerFilter !== 'All' && (a.owner || 'Joint') !== ownerFilter) return false;
+      if (categoryFilter !== 'All' && (a.category || 'Cash') !== categoryFilter) return false;
+      return true;
+    }),
+    [visibleAccounts, ownerFilter, categoryFilter]
+  );
+
+  const cutoffDate = useMemo(() => getDateCutoff(timeRange), [timeRange]);
+  const chartData = useMemo(() => buildChartData(filteredAccounts, snapshots, cutoffDate), [filteredAccounts, snapshots, cutoffDate]);
+
+  const stats = useMemo(() => {
+    if (chartData.length < 1) return null;
+    const latest = chartData[chartData.length - 1];
+    const first = chartData[0];
+    const currentTotal = selectedAccount ? (latest[selectedAccount] || 0) : latest.total;
+    const startTotal = selectedAccount ? (first[selectedAccount] || 0) : first.total;
+    const change = currentTotal - startTotal;
+    const changePct = startTotal > 0 ? ((change / startTotal) * 100).toFixed(1) : 0;
+    return { currentTotal, change, changePct, latestDate: latest.dateLabel };
+  }, [chartData, selectedAccount]);
+
+  if (accLoading || snapLoading || ownersLoading) return html`<div class="loading">Loading...</div>`;
+
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'entry', label: 'Data Entry' },
+    { id: 'accounts', label: 'Accounts' },
+  ];
+
+  const filterOptions = ['All', ...ownerNames];
+
+  return html`<div class="app">
+    <header>
+      <h1>🐳 MST</h1>
+      <div style=${{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style=${{ fontSize: '0.85rem', color: '#666' }}>${userEmail}</span>
+        <button class="btn-secondary btn-sm" onClick=${onLogout}>Sign Out</button>
+      </div>
+    </header>
+    <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div class="tabs">
+        ${tabs.map(t => html`<button key=${t.id} class=${'tab' + (tab === t.id ? ' active' : '')} onClick=${() => setTab(t.id)}>${t.label}</button>`)}
+      </div>
+    </div>
+
+    ${tab === 'dashboard' && html`<div>
+      <div class="sticky-controls">
+        <div class="dashboard-controls">
+          <div class="control-group">
+            <span class="control-group-label">Period</span>
+            ${TIME_RANGES.map(r => html`<button key=${r.id}
+              class=${'range-btn' + (timeRange === r.id ? ' active' : '')}
+              onClick=${() => setTimeRange(r.id)}>${r.label}</button>`)}
+          </div>
+          <div class="control-group">
+            <span class="control-group-label">Owner</span>
+            ${filterOptions.map(o => html`<button key=${o}
+              class=${'range-btn' + (ownerFilter === o ? ' active' : '')}
+              onClick=${() => setOwnerFilter(o)}>${o}</button>`)}
+          </div>
+          <div class="control-group">
+            <span class="control-group-label">Category</span>
+            ${['All', ...CATEGORIES].map(c => html`<button key=${c}
+              class=${'range-btn' + (categoryFilter === c ? ' active' : '')}
+              onClick=${() => setCategoryFilter(c)}>${c}</button>`)}
+          </div>
+          <div class="control-group" style=${{ marginLeft: 'auto' }}>
+            <button class=${'projection-toggle' + (showProjections ? ' active' : '')}
+              onClick=${() => setShowProjections(!showProjections)}>
+              ${showProjections ? 'Hide Projections' : 'Show Projections'}
+            </button>
+          </div>
+        </div>
+        <div class="dashboard-controls">
+          <${AccountLegend} accounts=${filteredAccounts} selectedId=${selectedAccount} onSelect=${setSelectedAccount} />
+        </div>
+      </div>
+
+      ${stats && html`<div class="chart-card">
+        <div class="stats-row" style=${{ paddingTop: 16 }}>
+          <div class="stat">
+            <span class="stat-value">${GBP(stats.currentTotal)}</span>
+            <span class="stat-label">${selectedAccount ? filteredAccounts.find(a => a.id === selectedAccount)?.name : 'Total'} — ${stats.latestDate}</span>
+          </div>
+          <div class="stat">
+            <span class=${'stat-change ' + (stats.change >= 0 ? 'positive' : 'negative')}>
+              ${stats.change >= 0 ? '+' : ''}${GBP(stats.change)} (${stats.change >= 0 ? '+' : ''}${stats.changePct}%)
+            </span>
+            <span class="stat-label">Change over period</span>
+          </div>
+        </div>
+      </div>`}
+
+      ${showProjections && html`<${ProjectionsCard} accounts=${filteredAccounts} snapshots=${snapshots} selectedId=${selectedAccount} />`}
+
+      <div class="chart-card">
+        <div class="chart-card-header"><h2>Savings Over Time</h2></div>
+        <div class="chart-card-body">
+          <${SavingsLineChart} accounts=${filteredAccounts} data=${chartData} selectedId=${selectedAccount}
+            projectionData=${showProjections ? buildProjectionData(chartData, filteredAccounts, snapshots, selectedAccount) : null} />
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card-header"><h2>Savings Breakdown</h2></div>
+        <div class="chart-card-body">
+          <${SavingsBarChart} accounts=${filteredAccounts} data=${chartData} selectedId=${selectedAccount} />
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Savings Data</h2>
+        <${DataTable} accounts=${filteredAccounts} data=${chartData} selectedId=${selectedAccount} />
+      </div>
+    </div>`}
+
+    ${tab === 'entry' && html`<${SnapshotEntry} accounts=${visibleAccounts} snapshots=${snapshots} onSave=${saveBatch} />`}
+    ${tab === 'accounts' && html`<div>
+      <${AccountManager} accounts=${accounts} owners=${ownerNames} onAdd=${addAccount} onUpdate=${updateAccount} onRemove=${removeAccount} />
+      <${OwnerManager} owners=${ownerRecords} accounts=${accounts} onAdd=${addOwner} onRemove=${removeOwner} />
+    </div>`}
+  </div>`;
+}
+
+// ── App Root ─────────────────────────────────────────────────────
+
+function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (loading) return html`<div class="loading">Loading...</div>`;
+  if (!session) return html`<${AuthScreen} supabase=${supabase} />`;
+
+  return html`<${Dashboard}
+    supabase=${supabase}
+    userId=${session.user.id}
+    userEmail=${session.user.email}
+    onLogout=${() => supabase.auth.signOut()}
+  />`;
+}
+
+// ── Mount ────────────────────────────────────────────────────────
+
+createRoot(document.getElementById('root')).render(html`<${App} />`);
+</script>
+</body>
+</html>
