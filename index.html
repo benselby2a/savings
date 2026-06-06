@@ -5,42 +5,177 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐳 MST</title>
 <style>
+  /* ── Theme variables ─────────────────────────────────── */
+  :root, [data-theme="dark"] {
+    --bg-body: #0a0a0f;
+    --bg-card: #12161e;
+    --bg-input: #0d1017;
+    --bg-controls: #12161e;
+    --bg-btn: #0d1017;
+    --bg-btn-hover: #1a2030;
+    --bg-chip: #1e2530;
+    --bg-chip-hover: #2a3544;
+    --bg-tab: #12161e;
+    --bg-tab-active: #161b24;
+    --bg-hover-row: #161b24;
+    --bg-highlight: #1a2233;
+    --bg-total-row: #0d1017;
+    --bg-legend-hover: #1a2030;
+    --bg-toggle: #2a3544;
+    --bg-slider-thumb: #c8ccd0;
+    --text-primary: #c8ccd0;
+    --text-heading: #ff8c00;
+    --text-muted: #556677;
+    --text-label: #445566;
+    --text-btn: #667788;
+    --text-btn-hover: #99aabb;
+    --text-chip: #8899aa;
+    --text-tab: #556677;
+    --text-stat: #e0e8f0;
+    --text-scenario: #8899aa;
+    --text-total-line: #e0e8f0;
+    --border-main: #1e2530;
+    --border-input: #2a3544;
+    --border-table: #1a1f28;
+    --border-btn: #2a3544;
+    --border-btn-hover: #3a4a5a;
+    --accent: #ff8c00;
+    --accent-bg: #ff8c00;
+    --accent-text: #0a0a0f;
+    --btn-primary-bg: #1a6baa;
+    --btn-primary-text: #e0e8f0;
+    --btn-primary-hover: #2080cc;
+    --btn-danger-bg: #8b2020;
+    --btn-danger-text: #f0c0c0;
+    --btn-danger-hover: #a52a2a;
+    --btn-secondary-bg: #1e2530;
+    --btn-secondary-text: #8899aa;
+    --btn-secondary-hover: #2a3544;
+    --color-positive: #44cc44;
+    --color-negative: #ff4444;
+    --color-success: #44cc44;
+    --color-error: #ff4444;
+    --color-default-tag: #FF9800;
+    --proj-active-bg: #1a3320;
+    --proj-active-border: #44cc44;
+    --proj-active-text: #44cc44;
+    --tooltip-bg: #1a1a2e;
+    --tooltip-label: #aaa;
+    --grid-stroke: #1e2530;
+    --axis-tick: #556677;
+    --axis-line: #1e2530;
+    --shadow-card: none;
+    --legend-selected-shadow: 0 0 6px rgba(255,140,0,0.2);
+    --scrollbar-track: #0a0a0f;
+    --scrollbar-thumb: #2a3544;
+    --scrollbar-thumb-hover: #3a4a5a;
+    --selection-bg: rgba(255,140,0,0.3);
+    --focus-shadow: 0 0 0 1px rgba(255,140,0,0.3);
+  }
+
+  [data-theme="light"] {
+    --bg-body: #f5f5f5;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+    --bg-controls: #ffffff;
+    --bg-btn: #f0f0f0;
+    --bg-btn-hover: #e0e0e0;
+    --bg-chip: #e3f2fd;
+    --bg-chip-hover: #bbdefb;
+    --bg-tab: #e0e0e0;
+    --bg-tab-active: #ffffff;
+    --bg-hover-row: #fafafa;
+    --bg-highlight: #e3f2fd;
+    --bg-total-row: #f9f9f9;
+    --bg-legend-hover: #f0f0f0;
+    --bg-toggle: #ccc;
+    --bg-slider-thumb: #ffffff;
+    --text-primary: #333333;
+    --text-heading: #1a1a2e;
+    --text-muted: #999999;
+    --text-label: #666666;
+    --text-btn: #555555;
+    --text-btn-hover: #333333;
+    --text-chip: #555555;
+    --text-tab: #555555;
+    --text-stat: #1a1a2e;
+    --text-scenario: #666666;
+    --text-total-line: #1a1a2e;
+    --border-main: #e0e0e0;
+    --border-input: #ddd;
+    --border-table: #eee;
+    --border-btn: #ddd;
+    --border-btn-hover: #bbb;
+    --accent: #2196F3;
+    --accent-bg: #1a1a2e;
+    --accent-text: #ffffff;
+    --btn-primary-bg: #2196F3;
+    --btn-primary-text: #ffffff;
+    --btn-primary-hover: #1976D2;
+    --btn-danger-bg: #f44336;
+    --btn-danger-text: #ffffff;
+    --btn-danger-hover: #d32f2f;
+    --btn-secondary-bg: #e0e0e0;
+    --btn-secondary-text: #333;
+    --btn-secondary-hover: #bdbdbd;
+    --color-positive: #4CAF50;
+    --color-negative: #f44336;
+    --color-success: #4CAF50;
+    --color-error: #f44336;
+    --color-default-tag: #FF9800;
+    --proj-active-bg: #e8f5e9;
+    --proj-active-border: #4CAF50;
+    --proj-active-text: #2e7d32;
+    --tooltip-bg: #1a1a2e;
+    --tooltip-label: #aaa;
+    --grid-stroke: #eee;
+    --axis-tick: #999;
+    --axis-line: #ddd;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.1);
+    --legend-selected-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    --scrollbar-track: #f5f5f5;
+    --scrollbar-thumb: #ccc;
+    --scrollbar-thumb-hover: #aaa;
+    --selection-bg: rgba(33,150,243,0.3);
+    --focus-shadow: 0 0 0 2px rgba(33,150,243,0.2);
+  }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Menlo', monospace; background: #0a0a0f; color: #c8ccd0; }
+  body { font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Menlo', monospace; background: var(--bg-body); color: var(--text-primary); transition: background 0.3s, color 0.3s; }
+  [data-theme="light"] body, [data-theme="light"] { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   .app { max-width: 1400px; margin: 0 auto; padding: 12px; }
-  header { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #1e2530; margin-bottom: 8px; }
-  header h1 { font-size: 1.1rem; color: #ff8c00; font-weight: 700; letter-spacing: 1px; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border-main); margin-bottom: 8px; }
+  header h1 { font-size: 1.1rem; color: var(--text-heading); font-weight: 700; letter-spacing: 1px; }
   button { cursor: pointer; border: none; border-radius: 3px; padding: 6px 14px; font-size: 0.8rem; font-family: inherit; transition: all 0.15s; }
-  .btn-primary { background: #1a6baa; color: #e0e8f0; }
-  .btn-primary:hover { background: #2080cc; }
-  .btn-danger { background: #8b2020; color: #f0c0c0; }
-  .btn-danger:hover { background: #a52a2a; }
-  .btn-secondary { background: #1e2530; color: #8899aa; }
-  .btn-secondary:hover { background: #2a3544; }
+  .btn-primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+  .btn-primary:hover { background: var(--btn-primary-hover); }
+  .btn-danger { background: var(--btn-danger-bg); color: var(--btn-danger-text); }
+  .btn-danger:hover { background: var(--btn-danger-hover); }
+  .btn-secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-text); }
+  .btn-secondary:hover { background: var(--btn-secondary-hover); }
   .btn-sm { padding: 3px 8px; font-size: 0.75rem; }
   .tabs { display: flex; gap: 2px; }
-  .tab { padding: 8px 18px; background: #12161e; border-radius: 3px 3px 0 0; font-weight: 600; color: #556677; border: 1px solid #1e2530; border-bottom: none; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
-  .tab.active { background: #161b24; color: #ff8c00; border-color: #2a3544; }
-  .card { background: #12161e; border-radius: 4px; padding: 16px; margin-bottom: 12px; border: 1px solid #1e2530; }
-  .card h2 { font-size: 0.9rem; margin-bottom: 10px; color: #ff8c00; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
-  input, select { border: 1px solid #2a3544; border-radius: 3px; padding: 6px 10px; font-size: 0.8rem; font-family: inherit; width: 100%; background: #0d1017; color: #c8ccd0; }
-  input:focus, select:focus { outline: none; border-color: #ff8c00; box-shadow: 0 0 0 1px rgba(255,140,0,0.3); }
+  .tab { padding: 8px 18px; background: var(--bg-tab); border-radius: 3px 3px 0 0; font-weight: 600; color: var(--text-tab); border: 1px solid var(--border-main); border-bottom: none; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tab.active { background: var(--bg-tab-active); color: var(--accent); border-color: var(--border-input); }
+  .card { background: var(--bg-card); border-radius: 4px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border-main); box-shadow: var(--shadow-card); }
+  .card h2 { font-size: 0.9rem; margin-bottom: 10px; color: var(--text-heading); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  input, select { border: 1px solid var(--border-input); border-radius: 3px; padding: 6px 10px; font-size: 0.8rem; font-family: inherit; width: 100%; background: var(--bg-input); color: var(--text-primary); }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-shadow); }
   .form-row { display: flex; gap: 8px; align-items: end; margin-bottom: 8px; }
   .form-group { display: flex; flex-direction: column; gap: 4px; }
-  .form-group label { font-size: 0.7rem; font-weight: 600; color: #556677; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
   .form-group.flex-1 { flex: 1; }
   table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
-  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid #1a1f28; }
-  th { background: #0d1017; font-weight: 600; position: sticky; top: 0; color: #556677; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; }
+  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border-table); }
+  th { background: var(--bg-input); font-weight: 600; position: sticky; top: 0; color: var(--text-muted); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; }
   th:first-child, td:first-child { text-align: left; font-weight: 500; }
-  tr:hover { background: #161b24; }
-  tr.total-row { font-weight: 700; border-top: 1px solid #ff8c00; background: #0d1017; color: #ff8c00; }
+  tr:hover { background: var(--bg-hover-row); }
+  tr.total-row { font-weight: 700; border-top: 1px solid var(--accent); background: var(--bg-total-row); color: var(--accent); }
   td, th, tr { transition: opacity 0.5s ease, background 0.5s ease; }
   td.dimmed, th.dimmed, tr.dimmed { opacity: 0.2; }
-  td.highlighted, th.highlighted { background: #1a2233; font-weight: 700; }
-  td.highlighted { background: #1a2233; }
+  td.highlighted, th.highlighted { background: var(--bg-highlight); font-weight: 700; }
   .account-list { display: flex; flex-direction: column; gap: 4px; }
-  .account-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #1e2530; border-radius: 3px; background: #0d1017; }
+  .account-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border-main); border-radius: 3px; background: var(--bg-input); }
   .account-name { flex: 1; font-weight: 500; }
   .snapshot-table th, .snapshot-table td { text-align: left; vertical-align: middle; }
   .snapshot-table th:nth-child(2), .snapshot-table td:nth-child(2) { width: 150px; }
@@ -49,83 +184,82 @@
   .snapshot-table input { display: block; max-width: 180px; margin-left: auto; text-align: right; }
   .snapshot-account { display: flex; align-items: center; gap: 8px; font-weight: 500; }
   .snapshot-color { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; }
-  .snapshot-default { color: #FF9800; font-size: 0.7rem; white-space: nowrap; }
+  .snapshot-default { color: var(--color-default-tag); font-size: 0.7rem; white-space: nowrap; }
   .chart-container { width: 100%; animation: fadeIn 0.6s ease; }
   @keyframes fadeIn { from { opacity: 0.3; } to { opacity: 1; } }
   .table-scroll { overflow-x: auto; }
   .auth-container { max-width: 360px; margin: 80px auto; }
-  .auth-container h2 { text-align: center; margin-bottom: 16px; color: #ff8c00; }
+  .auth-container h2 { text-align: center; margin-bottom: 16px; color: var(--text-heading); }
   .auth-container .form-group { margin-bottom: 12px; }
   .auth-container button { width: 100%; margin-top: 8px; }
-  .auth-toggle { text-align: center; margin-top: 12px; color: #556677; font-size: 0.8rem; }
-  .auth-toggle a { color: #ff8c00; cursor: pointer; text-decoration: underline; }
-  .error { color: #ff4444; font-size: 0.8rem; margin-top: 4px; }
-  .success { color: #44cc44; font-size: 0.8rem; margin-top: 4px; }
-  .loading { text-align: center; padding: 40px; color: #556677; }
-  .empty-state { text-align: center; padding: 40px; color: #556677; }
+  .auth-toggle { text-align: center; margin-top: 12px; color: var(--text-muted); font-size: 0.8rem; }
+  .auth-toggle a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+  .error { color: var(--color-error); font-size: 0.8rem; margin-top: 4px; }
+  .success { color: var(--color-success); font-size: 0.8rem; margin-top: 4px; }
+  .loading { text-align: center; padding: 40px; color: var(--text-muted); }
+  .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
   .inline-edit { display: flex; gap: 4px; align-items: center; }
   .inline-edit input { width: auto; }
-  input[type="color"] { width: 32px; height: 32px; padding: 2px; cursor: pointer; background: #0d1017; border: 1px solid #2a3544; }
   .existing-dates { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-  .chip { padding: 3px 8px; background: #1e2530; border-radius: 3px; font-size: 0.75rem; cursor: pointer; border: none; color: #8899aa; }
-  .chip:hover { background: #2a3544; }
-  .chip.active { background: #ff8c00; color: #0a0a0f; }
+  .chip { padding: 3px 8px; background: var(--bg-chip); border-radius: 3px; font-size: 0.75rem; cursor: pointer; border: none; color: var(--text-chip); }
+  .chip:hover { background: var(--bg-chip-hover); }
+  .chip.active { background: var(--accent-bg); color: var(--accent-text); }
 
   /* Controls bar */
-  .sticky-controls { position: sticky; top: 0; z-index: 100; padding-top: 4px; padding-bottom: 2px; background: #0a0a0f; }
-  .dashboard-controls { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-bottom: 4px; padding: 6px 10px; background: #12161e; border-radius: 3px; border: 1px solid #1e2530; }
+  .sticky-controls { position: sticky; top: 0; z-index: 100; padding-top: 4px; padding-bottom: 2px; background: var(--bg-body); }
+  .dashboard-controls { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-bottom: 4px; padding: 6px 10px; background: var(--bg-controls); border-radius: 3px; border: 1px solid var(--border-main); box-shadow: var(--shadow-card); }
   .control-group { display: flex; align-items: center; gap: 4px; }
-  .control-group-label { font-size: 0.65rem; font-weight: 700; color: #445566; text-transform: uppercase; letter-spacing: 1px; margin-right: 4px; }
-  .range-btn { padding: 4px 10px; background: #0d1017; border: 1px solid #2a3544; border-radius: 3px; font-size: 0.75rem; font-weight: 600; color: #667788; transition: all 0.2s ease; }
-  .range-btn:hover { background: #1a2030; border-color: #3a4a5a; color: #99aabb; }
-  .range-btn.active { background: #ff8c00; color: #0a0a0f; border-color: #ff8c00; }
+  .control-group-label { font-size: 0.65rem; font-weight: 700; color: var(--text-label); text-transform: uppercase; letter-spacing: 1px; margin-right: 4px; }
+  .range-btn { padding: 4px 10px; background: var(--bg-btn); border: 1px solid var(--border-btn); border-radius: 3px; font-size: 0.75rem; font-weight: 600; color: var(--text-btn); transition: all 0.2s ease; }
+  .range-btn:hover { background: var(--bg-btn-hover); border-color: var(--border-btn-hover); color: var(--text-btn-hover); }
+  .range-btn.active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-bg); }
 
   /* Account legend / selector */
   .account-legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; align-items: center; width: 100%; }
   .legend-toggle { display: none; }
   .legend-item { display: flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 3px; font-size: 0.7rem; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.2s ease; line-height: 1.2; }
-  .legend-item:hover { background: #1a2030; }
-  .legend-item.selected { border-color: currentColor; box-shadow: 0 0 6px rgba(255,140,0,0.2); }
+  .legend-item:hover { background: var(--bg-legend-hover); }
+  .legend-item.selected { border-color: currentColor; box-shadow: var(--legend-selected-shadow); }
   .legend-item.dimmed { opacity: 0.2; transition: opacity 0.5s ease; }
-  .legend-owner-label { font-size: 0.55rem; font-weight: 700; color: #445566; text-transform: uppercase; letter-spacing: 0.5px; padding: 0 2px; grid-column: 1 / -1; }
+  .legend-owner-label { font-size: 0.55rem; font-weight: 700; color: var(--text-label); text-transform: uppercase; letter-spacing: 0.5px; padding: 0 2px; grid-column: 1 / -1; }
   .legend-dot { width: 7px; height: 7px; border-radius: 50%; }
   .legend-owner { font-size: 0.55rem; font-weight: 700; opacity: 0.4; margin-left: 1px; }
 
   /* Chart cards */
-  .chart-card { background: #12161e; border-radius: 4px; margin-bottom: 12px; border: 1px solid #1e2530; overflow: hidden; }
+  .chart-card { background: var(--bg-card); border-radius: 4px; margin-bottom: 12px; border: 1px solid var(--border-main); overflow: hidden; box-shadow: var(--shadow-card); }
   .chart-card-header { padding: 12px 16px 0; display: flex; justify-content: space-between; align-items: center; }
-  .chart-card-header h2 { font-size: 0.85rem; color: #ff8c00; margin: 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .chart-card-header h2 { font-size: 0.85rem; color: var(--text-heading); margin: 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
   .chart-card-body { padding: 8px 4px 12px; }
 
   /* Summary stats */
   .stats-row { display: flex; gap: 24px; padding: 0 16px 12px; }
   .stat { display: flex; flex-direction: column; }
-  .stat-value { font-size: 1.4rem; font-weight: 700; color: #e0e8f0; font-variant-numeric: tabular-nums; }
-  .stat-label { font-size: 0.65rem; color: #445566; text-transform: uppercase; letter-spacing: 1px; }
+  .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--text-stat); font-variant-numeric: tabular-nums; }
+  .stat-label { font-size: 0.65rem; color: var(--text-label); text-transform: uppercase; letter-spacing: 1px; }
   .stat-change { font-size: 0.85rem; font-weight: 600; }
-  .stat-change.positive { color: #44cc44; }
-  .stat-change.negative { color: #ff4444; }
+  .stat-change.positive { color: var(--color-positive); }
+  .stat-change.negative { color: var(--color-negative); }
 
   /* Projections */
   .projections-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-  .projections-table th, .projections-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #1a1f28; }
-  .projections-table th { background: #0d1017; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: #445566; }
+  .projections-table th, .projections-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border-table); }
+  .projections-table th { background: var(--bg-input); font-weight: 600; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-label); }
   .projections-table th:first-child, .projections-table td:first-child { text-align: left; }
-  .projections-table .scenario-label { font-weight: 500; color: #8899aa; white-space: nowrap; }
+  .projections-table .scenario-label { font-weight: 500; color: var(--text-scenario); white-space: nowrap; }
   .projections-table .conservative { color: #FF9800; }
   .projections-table .expected { color: #2196F3; font-weight: 600; }
   .projections-table .optimistic { color: #4CAF50; }
-  .projections-table .growth-rate { font-size: 0.7rem; color: #556677; font-weight: 400; }
-  .projection-toggle { padding: 4px 12px; background: #0d1017; border: 1px solid #2a3544; border-radius: 3px; font-size: 0.75rem; font-weight: 600; color: #667788; }
-  .projection-toggle:hover { background: #1a2030; }
-  .projection-toggle.active { background: #1a3320; border-color: #44cc44; color: #44cc44; }
+  .projections-table .growth-rate { font-size: 0.7rem; color: var(--text-muted); font-weight: 400; }
+  .projection-toggle { padding: 4px 12px; background: var(--bg-btn); border: 1px solid var(--border-btn); border-radius: 3px; font-size: 0.75rem; font-weight: 600; color: var(--text-btn); }
+  .projection-toggle:hover { background: var(--bg-btn-hover); }
+  .projection-toggle.active { background: var(--proj-active-bg); border-color: var(--proj-active-border); color: var(--proj-active-text); }
 
   /* Toggle switch */
   .toggle-switch { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
-  .toggle-switch-label { font-size: 0.75rem; font-weight: 600; color: #667788; text-transform: uppercase; letter-spacing: 0.5px; }
-  .toggle-track { position: relative; width: 36px; height: 18px; background: #2a3544; border-radius: 9px; transition: background 0.2s; flex-shrink: 0; }
-  .toggle-track.active { background: #44cc44; }
-  .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #c8ccd0; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+  .toggle-switch-label { font-size: 0.75rem; font-weight: 600; color: var(--text-btn); text-transform: uppercase; letter-spacing: 0.5px; }
+  .toggle-track { position: relative; width: 36px; height: 18px; background: var(--bg-toggle); border-radius: 9px; transition: background 0.2s; flex-shrink: 0; }
+  .toggle-track.active { background: var(--color-positive); }
+  .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: var(--bg-slider-thumb); border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
   .toggle-track.active .toggle-thumb { transform: translateX(18px); }
 
   /* Rate slider */
@@ -135,12 +269,18 @@
   .rate-slider-value.conservative { color: #FF9800; }
   .rate-slider-value.expected { color: #2196F3; }
   .rate-slider-value.optimistic { color: #4CAF50; }
-  .rate-slider-label-row { display: flex; justify-content: space-between; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; color: #556677; }
+  .rate-slider-label-row { display: flex; justify-content: space-between; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; color: var(--text-muted); }
   .rate-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: linear-gradient(to right, #FF9800, #2196F3 50%, #4CAF50); outline: none; }
-  .rate-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #c8ccd0; border: 2px solid #2196F3; cursor: pointer; box-shadow: 0 0 6px rgba(33,150,243,0.4); }
-  .rate-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #c8ccd0; border: 2px solid #2196F3; cursor: pointer; box-shadow: 0 0 6px rgba(33,150,243,0.4); }
-  .rate-slider-bounds { display: flex; justify-content: space-between; font-size: 0.65rem; color: #445566; margin-top: 4px; }
+  .rate-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--bg-slider-thumb); border: 2px solid #2196F3; cursor: pointer; box-shadow: 0 0 6px rgba(33,150,243,0.4); }
+  .rate-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--bg-slider-thumb); border: 2px solid #2196F3; cursor: pointer; box-shadow: 0 0 6px rgba(33,150,243,0.4); }
+  .rate-slider-bounds { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-label); margin-top: 4px; }
   .rate-slider-bounds span:nth-child(2) { position: relative; left: -2px; }
+
+  /* Theme toggle */
+  .theme-toggle { display: flex; gap: 2px; align-items: center; }
+  .theme-btn { padding: 3px 8px; font-size: 0.7rem; font-weight: 600; background: var(--bg-btn); color: var(--text-btn); border: 1px solid var(--border-btn); border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .theme-btn:hover { background: var(--bg-btn-hover); }
+  .theme-btn.active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-bg); }
 
   /* Responsive label toggling */
   .label-short { display: none; }
@@ -182,7 +322,7 @@
     /* Account legend - collapsible on mobile */
     .account-legend { grid-template-columns: repeat(3, 1fr); gap: 2px; }
     .account-legend.collapsed { display: none; }
-    .legend-toggle { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; font-weight: 600; color: #556677; cursor: pointer; background: none; border: none; padding: 2px 0; }
+    .legend-toggle { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; font-weight: 600; color: var(--text-muted); cursor: pointer; background: none; border: none; padding: 2px 0; }
     .legend-toggle .arrow { transition: transform 0.2s; }
     .legend-toggle .arrow.open { transform: rotate(90deg); }
     .legend-item { padding: 2px 6px; font-size: 0.68rem; }
@@ -216,38 +356,38 @@
     .account-item { font-size: 0.8rem; }
   }
 
-  /* Dark scrollbars */
+  /* Scrollbars */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #0a0a0f; }
-  ::-webkit-scrollbar-thumb { background: #2a3544; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3a4a5a; }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
   /* Selection */
-  ::selection { background: rgba(255,140,0,0.3); color: #fff; }
+  ::selection { background: var(--selection-bg); color: #fff; }
 </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react/": "https://esm.sh/react@18.3.1/",
-    "react-dom": "https://esm.sh/react-dom@18.3.1?deps=react@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1",
-    "recharts": "https://esm.sh/recharts@2.15.3?bundle&external=react,react-dom&deps=react@18.3.1,react-dom@18.3.1",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.49.4?bundle",
-    "htm": "https://esm.sh/htm@3.1.1?bundle"
-  }
-}
-</script>
+<script src="vendor/react.umd.js"></script>
+<script src="vendor/react-dom.umd.js"></script>
+<script src="vendor/prop-types.umd.js"></script>
+<script src="vendor/recharts.umd.js"></script>
+<script src="vendor/supabase.umd.js"></script>
 </head>
 <body>
+<script>
+  // Apply saved theme immediately to prevent flash
+  (function() {
+    var t = localStorage.getItem('mst-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <div id="root"></div>
-<script type="module">
-import { createElement, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createRoot } from 'react-dom/client';
-import htm from 'htm';
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, Area, ComposedChart, ReferenceLine } from 'recharts';
-import { createClient } from '@supabase/supabase-js';
+<script>
+const { createElement, useState, useEffect, useCallback, useMemo, useRef } = React;
+const { createRoot } = ReactDOM;
+const { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, Area, ComposedChart, ReferenceLine } = Recharts;
+const { createClient } = window.supabase;
 
+// htm - inline (tagged template JSX alternative)
+var _htmCache=new Map;function _htmBuild(t,s,r,e){var u;s[0]=0;for(var h=1;h<s.length;h++){var p=s[h++],a=s[h]?(s[0]|=p?1:2,r[s[h++]]):s[++h];3===p?e[0]=a:4===p?e[1]=Object.assign(e[1]||{},a):5===p?(e[1]=e[1]||{})[s[++h]]=a:6===p?e[1][s[++h]]+=a+"":p?(u=t.apply(a,_htmBuild(t,a,r,["",null])),e.push(u),a[0]?s[0]|=2:(s[h-2]=0,s[h]=u)):e.push(a)}return e}function htm(s){var r=_htmCache.get(this);r||(r=new Map,_htmCache.set(this,r));var cached=r.get(s);if(!cached){cached=function(n){for(var t,s,r=1,e="",u="",h=[0],p=function(n){1===r&&(n||(e=e.replace(/^\s*\n\s*|\s*\n\s*$/g,"")))?h.push(0,n,e):3===r&&(n||e)?(h.push(3,n,e),r=2):2===r&&"..."===e&&n?h.push(4,n,0):2===r&&e&&!n?h.push(5,0,!0,e):r>=5&&((e||!n&&5===r)&&(h.push(r,0,e,s),r=6),n&&(h.push(r,n,0,s),r=6)),e=""},a=0;a<n.length;a++){a&&(1===r&&p(),p(a));for(var l=0;l<n[a].length;l++)t=n[a][l],1===r?"<"===t?(p(),h=[h],r=3):e+=t:4===r?"--"===e&&">"===t?(r=1,e=""):e=t+e[0]:u?t===u?u="":e+=t:'"'===t||"'"===t?u=t:">"===t?(p(),r=1):r&&("="===t?(r=5,s=e,e=""):"/"===t&&(r<5||">"===n[a][l+1])?(p(),3===r&&(h=h[0]),r=h,(h=h[0]).push(2,0,r),r=0):" "===t||"\t"===t||"\n"===t||"\r"===t?(p(),r=2):e+=t),3===r&&"!--"===e&&(r=4,h=h[0])}return p(),h}(s);r.set(s,cached)}var result=_htmBuild(this,cached,arguments,[]);return result.length>1?result:result[0]}
 const html = htm.bind(createElement);
 
 // ── Supabase Config ──────────────────────────────────────────────
@@ -268,7 +408,13 @@ function fmtDate(d) {
   return m + ' ' + y;
 }
 
-const DEFAULT_COLORS = ['#00BCD4','#4CAF50','#9E9E9E','#FF9800','#F44336','#9C27B0','#2196F3','#E91E63','#795548','#607D8B'];
+const PALETTE = [
+  '#2196F3','#4CAF50','#FF9800','#E91E63','#00BCD4',
+  '#9C27B0','#F44336','#8BC34A','#FF5722','#3F51B5',
+  '#009688','#FFC107','#673AB7','#CDDC39','#795548',
+  '#03A9F4','#FF4081','#607D8B','#FFEB3B','#4DD0E1',
+];
+function accountColor(index) { return PALETTE[index % PALETTE.length]; }
 const CATEGORIES = ['Cash', 'Available Assets', 'Restricted Assets', 'Properties', 'Pensions'];
 const PP_CATEGORIES = ['Properties', 'Pensions'];
 const CATEGORY_FILTERS = [
@@ -353,15 +499,16 @@ function useAccounts(supabase, userId) {
 
   const fetch = useCallback(async () => {
     const { data } = await supabase.from('accounts').select('*').order('display_order');
-    setAccounts(data || []);
+    const colored = (data || []).map((a, i) => ({ ...a, color: accountColor(i) }));
+    setAccounts(colored);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const add = async (name, color, owner, category) => {
+  const add = async (name, owner, category) => {
     const order = accounts.length;
-    await supabase.from('accounts').insert({ user_id: userId, name, color, owner, category, display_order: order });
+    await supabase.from('accounts').insert({ user_id: userId, name, color: '#000000', owner, category, display_order: order });
     await fetch();
   };
 
@@ -445,7 +592,6 @@ function useOwners(supabase) {
 
 function AccountManager({ accounts, owners, onAdd, onUpdate, onRemove }) {
   const [name, setName] = useState('');
-  const [color, setColor] = useState(DEFAULT_COLORS[0]);
   const [owner, setOwner] = useState(owners[0] || 'Joint');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [newOwner, setNewOwner] = useState('');
@@ -456,10 +602,9 @@ function AccountManager({ accounts, owners, onAdd, onUpdate, onRemove }) {
     if (!name.trim()) return;
     const finalOwner = owner === '__new__' ? newOwner.trim() : owner;
     if (!finalOwner) return;
-    onAdd(name.trim(), color, finalOwner, category);
+    onAdd(name.trim(), finalOwner, category);
     setName('');
     setNewOwner('');
-    setColor(DEFAULT_COLORS[(accounts.length + 1) % DEFAULT_COLORS.length]);
   };
 
   const startEdit = (a) => { setEditId(a.id); setEditName(a.name); };
@@ -501,20 +646,15 @@ function AccountManager({ accounts, owners, onAdd, onUpdate, onRemove }) {
         <label>New Owner Name</label>
         <input value=${newOwner} onInput=${e => setNewOwner(e.target.value)} placeholder="Name" style=${{ width: 120 }} />
       </div>`}
-      <div class="form-group">
-        <label>Color</label>
-        <input type="color" value=${color} onInput=${e => setColor(e.target.value)} />
-      </div>
       <button class="btn-primary" onClick=${handleAdd}>Add</button>
     </div>
     ${CATEGORIES.map(cat => {
       const items = grouped[cat] || [];
       return html`<div key=${cat} style=${{ marginBottom: 12 }}>
-        <div style=${{ fontSize: '0.75rem', fontWeight: 600, color: '#556677', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid #1e2530' }}>${cat}</div>
+        <div style=${{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid var(--border-main)' }}>${cat}</div>
         <div class="account-list">
           ${items.map(a => html`<div class="account-item" key=${a.id}>
-            <input type="color" value=${a.color}
-              onInput=${e => onUpdate(a.id, { color: e.target.value })} style=${{ width: 32, height: 32, border: 'none', cursor: 'pointer' }} />
+            <span style=${{ width: 14, height: 14, borderRadius: '50%', background: a.color, flexShrink: 0 }}></span>
             ${editId === a.id
               ? html`<div class="inline-edit">
                   <input value=${editName} onInput=${e => setEditName(e.target.value)}
@@ -577,7 +717,7 @@ function OwnerManager({ owners, accounts, onAdd, onRemove }) {
         const count = accountCountByOwner[o.name] || 0;
         return html`<div class="account-item" key=${o.id}>
           <span class="account-name">${o.name}</span>
-          <span style=${{ fontSize: '0.8rem', color: '#556677' }}>${count} account${count !== 1 ? 's' : ''}</span>
+          <span style=${{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>${count} account${count !== 1 ? 's' : ''}</span>
           ${count === 0
             ? html`<button class="btn-danger btn-sm" onClick=${() => { if (confirm('Delete owner "' + o.name + '"?')) onRemove(o.id); }}>Delete</button>`
             : html`<button class="btn-secondary btn-sm" disabled style=${{ opacity: 0.4, cursor: 'not-allowed' }} title="Reassign accounts first">Delete</button>`
@@ -732,7 +872,7 @@ function buildChartData(accounts, snapshots, cutoffDate) {
 
 // ── Account Legend ───────────────────────────────────────────────
 
-function AccountLegend({ accounts, selectedIds, onSelect }) {
+function AccountLegend({ accounts, selectedIds, onSelect, tc }) {
   const hasSelection = selectedIds.length > 0;
   const [collapsed, setCollapsed] = useState(false);
   const handleClick = (id) => {
@@ -762,8 +902,8 @@ function AccountLegend({ accounts, selectedIds, onSelect }) {
     <div class=${'account-legend' + (collapsed ? ' collapsed' : '')}>
       <div class=${'legend-item' + (!hasSelection ? ' selected' : ' dimmed')}
         onClick=${() => onSelect([])}
-        style=${{ background: '#1e2530', color: '#e0e8f0' }}>
-        <span class="legend-dot" style=${{ background: '#e0e8f0' }}></span>
+        style=${{ background: tc.bgLegendTotal, color: tc.totalLine }}>
+        <span class="legend-dot" style=${{ background: tc.totalLine }}></span>
         Total
       </div>
       ${accounts.map(a => {
@@ -817,24 +957,17 @@ function buildProjectionData(chartData, accounts, snapshots, selectedIds, rate) 
 
 // ── Line Chart ───────────────────────────────────────────────────
 
-function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKey, tooltipKey }) {
+function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKey, tooltipKey, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
   const hasSelection = selectedIds.length > 0;
-  const lastTooltipKey = useRef(tooltipKey);
-  const [tooltipVisible, setTooltipVisible] = useState(true);
-
-  useEffect(() => {
-    if (tooltipKey !== lastTooltipKey.current) {
-      setTooltipVisible(false);
-      lastTooltipKey.current = tooltipKey;
-    }
-  }, [tooltipKey]);
+  const [tooltipHidden, setTooltipHidden] = useState(false);
+  const prevTK = useRef(tooltipKey);
+  useEffect(() => { if (tooltipKey !== prevTK.current) { prevTK.current = tooltipKey; setTooltipHidden(true); } }, [tooltipKey]);
 
   const CustomTooltip = ({ active, payload, label }) => {
-    if (!tooltipVisible && active) { setTooltipVisible(true); return null; }
-    if (!tooltipVisible || !active || !payload) return null;
+    if (!active || !payload) return null;
     const sorted = [...payload].filter(p => p.value != null && p.dataKey !== 'proj_range' && p.dataKey !== 'proj_high' && p.dataKey !== 'proj_low').sort((a, b) => (b.value || 0) - (a.value || 0));
-    return html`<div style=${{ background: '#1a1a2e', border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: '0.82rem', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+    return html`<div style=${{ background: 'var(--tooltip-bg)', border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: '0.82rem', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
       <div style=${{ fontWeight: 600, marginBottom: 6, color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }}>${typeof label === 'number' ? fmtDate(new Date(label).toISOString().slice(0, 10)) : label}</div>
       ${sorted.map(p => html`<div key=${p.dataKey} style=${{ display: 'flex', justifyContent: 'space-between', gap: 20, padding: '2px 0' }}>
         <span style=${{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -888,16 +1021,18 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
 
   const xAxisConfig = { dataKey: '_ts', type: 'number', scale: 'time', domain: ['dataMin', 'dataMax'],
     tickFormatter: ts => fmtDate(new Date(ts).toISOString().slice(0, 10)),
-    tick: { fontSize: 11, fill: '#556677', fontFamily: 'inherit' }, axisLine: { stroke: '#1e2530' }, tickLine: false };
+    tick: { fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }, axisLine: { stroke: tc.axisLine }, tickLine: false };
 
-  return html`<div class="chart-container">
+  return html`<div class="chart-container" onClickCapture=${() => { if (!tooltipHidden) setTooltipHidden(true); }}>
     <${ResponsiveContainer} width="100%" height=${400}>
-      <${ComposedChart} key=${chartKey} data=${mergedData} margin=${{ top: 5, right: 30, left: 20, bottom: 5 }}>
-        <${CartesianGrid} strokeDasharray="3 3" stroke="#1e2530" />
+      <${ComposedChart} key=${chartKey} data=${mergedData} margin=${{ top: 5, right: 30, left: 20, bottom: 5 }}
+        onClick=${(e) => { if (e && e.activePayload) { setTimeout(() => setTooltipHidden(false), 0); } }}>
+        <${CartesianGrid} strokeDasharray="3 3" stroke=${tc.grid} />
         <${XAxis} ...${xAxisConfig} />
-        <${YAxis} tickFormatter=${GBP} tick=${{ fontSize: 11, fill: '#556677', fontFamily: 'inherit' }} axisLine=${false} tickLine=${false} width=${80}
+        <${YAxis} tickFormatter=${GBP} tick=${{ fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${false} tickLine=${false} width=${80}
           domain=${yDomain} allowDataOverflow=${hasSelection} />
-        <${Tooltip} content=${html`<${CustomTooltip} />`} trigger="click" />
+        <${Tooltip} content=${html`<${CustomTooltip} />`} trigger="click"
+          wrapperStyle=${tooltipHidden ? { display: 'none' } : {}} />
         ${projectionData && html`<${Area} type="monotone" dataKey="proj_range" stroke="none" fill="#2196F3" fillOpacity=${0.12} name="Projection range" dot=${false} activeDot=${false} connectNulls=${true} animationDuration=${1000} animationEasing="ease-in-out" />`}
         ${accounts.map(a => {
           const isSelected = selectedIds.includes(a.id);
@@ -910,10 +1045,10 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
             animationDuration=${1000} animationEasing="ease-in-out" />`;
         })}
         <${Line} type="monotone" dataKey="total" name="Total"
-          stroke="#e0e8f0" strokeWidth=${!hasSelection ? 3 : 2}
+          stroke=${tc.totalLine} strokeWidth=${!hasSelection ? 3 : 2}
           strokeOpacity=${!hasSelection ? 1 : 0.15}
           strokeDasharray=${!hasSelection ? '' : '4 4'}
-          dot=${!hasSelection ? { r: 4, fill: '#e0e8f0', strokeWidth: 0 } : false} connectNulls=${false}
+          dot=${!hasSelection ? { r: 4, fill: tc.totalLine, strokeWidth: 0 } : false} connectNulls=${false}
           animationDuration=${1000} animationEasing="ease-in-out" />
         ${projectionData && html`<${Line} type="monotone" dataKey="proj_expected" name="Projected"
           stroke="#2196F3" strokeWidth=${2.5} strokeDasharray="8 5" dot=${false}
@@ -926,18 +1061,12 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
 
 // ── Stacked Bar Chart ────────────────────────────────────────────
 
-function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey }) {
+function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
   const hasSelection = selectedIds.length > 0;
-  const lastTooltipKey2 = useRef(tooltipKey);
-  const [tooltipVisible2, setTooltipVisible2] = useState(true);
-
-  useEffect(() => {
-    if (tooltipKey !== lastTooltipKey2.current) {
-      setTooltipVisible2(false);
-      lastTooltipKey2.current = tooltipKey;
-    }
-  }, [tooltipKey]);
+  const prevTK2 = useRef(tooltipKey);
+  const [tooltipHidden2, setTooltipHidden2] = useState(false);
+  useEffect(() => { if (tooltipKey !== prevTK2.current) { prevTK2.current = tooltipKey; setTooltipHidden2(true); } }, [tooltipKey]);
 
   const compactGBP = (v) => {
     if (v == null) return '';
@@ -955,17 +1084,17 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey }) 
       fontSize=${fs} fontWeight="500" style=${{ letterSpacing: '-0.3px' }}>${compactGBP(value)}</text>`;
   };
 
-  return html`<div class="chart-container">
+  return html`<div class="chart-container" onClickCapture=${() => { if (!tooltipHidden2) setTooltipHidden2(true); }}>
     <${ResponsiveContainer} width="100%" height=${500}>
       <${BarChart} key=${chartKey} data=${data} margin=${{ top: 5, right: 30, left: 20, bottom: 5 }}
-        onClick=${() => setTooltipVisible2(true)}>
-        <${CartesianGrid} strokeDasharray="3 3" stroke="#1e2530" />
-        <${XAxis} dataKey="dateLabel" tick=${{ fontSize: 11, fill: '#556677', fontFamily: 'inherit' }} axisLine=${{ stroke: '#1e2530' }} tickLine=${false} />
-        <${YAxis} tickFormatter=${GBP} tick=${{ fontSize: 11, fill: '#556677', fontFamily: 'inherit' }} axisLine=${false} tickLine=${false} width=${80} />
+        onClick=${(e) => { if (e && e.activePayload) { setTimeout(() => setTooltipHidden2(false), 0); } }}>
+        <${CartesianGrid} strokeDasharray="3 3" stroke=${tc.grid} />
+        <${XAxis} dataKey="dateLabel" tick=${{ fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${{ stroke: tc.axisLine }} tickLine=${false} />
+        <${YAxis} tickFormatter=${GBP} tick=${{ fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${false} tickLine=${false} width=${80} />
         <${Tooltip} formatter=${(v, name) => [GBP(v), name]} trigger="click"
-          contentStyle=${{ background: '#1a1a2e', border: 'none', borderRadius: 8, color: '#fff' }}
+          contentStyle=${{ background: tc.tooltipBg, border: 'none', borderRadius: 8, color: '#fff' }}
           labelStyle=${{ color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }}
-          wrapperStyle=${tooltipVisible2 ? {} : { display: 'none' }} />
+          wrapperStyle=${tooltipHidden2 ? { display: 'none' } : {}} />
         ${accounts.map(a => {
           const isHighlighted = !hasSelection || selectedIds.includes(a.id);
           return html`<${Bar} key=${a.id} dataKey=${a.id} name=${a.name} stackId="stack"
@@ -981,7 +1110,7 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey }) 
 
 // ── Data Table ───────────────────────────────────────────────────
 
-function DataTable({ accounts, data, selectedIds }) {
+function DataTable({ accounts, data, selectedIds, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
   const hasSelection = selectedIds.length > 0;
   const scrollRef = useRef(null);
@@ -993,7 +1122,7 @@ function DataTable({ accounts, data, selectedIds }) {
   return html`<div class="table-scroll" ref=${scrollRef}>
     <table>
       <thead><tr>
-        <th style=${{ textAlign: 'left', position: 'sticky', left: 0, zIndex: 2, background: '#0d1017' }}>Account</th>
+        <th style=${{ textAlign: 'left', position: 'sticky', left: 0, zIndex: 2, background: tc.bgInput }}>Account</th>
         ${data.map(d => html`<th key=${d.date} style=${{ whiteSpace: 'nowrap' }}>${d.dateLabel}</th>`)}
       </tr></thead>
       <tbody>
@@ -1001,16 +1130,16 @@ function DataTable({ accounts, data, selectedIds }) {
           const isHighlighted = selectedIds.includes(a.id);
           const isDimmed = hasSelection && !isHighlighted;
           return html`<tr key=${a.id} class=${isDimmed ? 'dimmed' : ''}>
-            <td style=${{ textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 1, background: isHighlighted ? '#1a2233' : '#12161e' }}>
+            <td style=${{ textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 1, background: isHighlighted ? tc.bgHighlight : tc.bgCard }}>
               <span style=${{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: a.color, marginRight: 6 }}></span>
               ${a.name}
             </td>
             ${data.map(d => html`<td key=${d.date}
-              style=${isHighlighted ? { fontWeight: 600, color: '#e0e8f0', background: '#1a2233' } : {}}>${d[a.id] ? Number(d[a.id]).toLocaleString('en-GB') : '0'}</td>`)}
+              style=${isHighlighted ? { fontWeight: 600, color: tc.textStat, background: tc.bgHighlight } : {}}>${d[a.id] ? Number(d[a.id]).toLocaleString('en-GB') : '0'}</td>`)}
           </tr>`;
         })}
         <tr class="total-row">
-          <td style=${{ textAlign: 'left', position: 'sticky', left: 0, zIndex: 1, background: '#0d1017', color: '#ff8c00' }}>Total</td>
+          <td style=${{ textAlign: 'left', position: 'sticky', left: 0, zIndex: 1, background: tc.bgInput, color: tc.accent }}>Total</td>
           ${data.map(d => html`<td key=${d.date} class=${hasSelection ? 'dimmed' : ''}>${GBP(d.total)}</td>`)}
         </tr>
       </tbody>
@@ -1130,9 +1259,9 @@ function ProjectionsCard({ accounts, snapshots, selectedIds, rate, onRateChange 
 
   return html`<div class="card" style=${{ padding: '12px 16px' }}>
     <div style=${{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-      <div style=${{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#556677', whiteSpace: 'nowrap' }}>
-        <strong style=${{ color: '#ff8c00', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Projection</strong>
-        <span>Recent: <strong style=${{ color: '#e0e8f0' }}>${(projections.recentGrowth * 100).toFixed(1)}%</strong></span>
+      <div style=${{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+        <strong style=${{ color: 'var(--text-heading)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Projection</strong>
+        <span>Recent: <strong style=${{ color: 'var(--text-stat)' }}>${(projections.recentGrowth * 100).toFixed(1)}%</strong></span>
       </div>
       <div style=${{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style=${{ fontSize: '0.75rem', fontWeight: 700, color: '#FF9800', whiteSpace: 'nowrap' }}>${lowRate.toFixed(1)}%</span>
@@ -1162,6 +1291,28 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
   const chartAreaRef = useRef(null);
   const prevFiltersRef = useRef('');
   const [chartKey, setChartKey] = useState(0);
+  const [theme, setTheme] = useState(() => localStorage.getItem('mst-theme') || 'dark');
+  const switchTheme = useCallback((t) => {
+    setTheme(t);
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('mst-theme', t);
+  }, []);
+  const tc = useMemo(() => {
+    const dark = theme === 'dark';
+    return {
+      grid: dark ? '#1e2530' : '#eee',
+      axisTick: dark ? '#556677' : '#999',
+      axisLine: dark ? '#1e2530' : '#ddd',
+      totalLine: dark ? '#e0e8f0' : '#1a1a2e',
+      tooltipBg: '#1a1a2e',
+      bgCard: dark ? '#12161e' : '#ffffff',
+      bgInput: dark ? '#0d1017' : '#f5f5f5',
+      bgHighlight: dark ? '#1a2233' : '#e3f2fd',
+      bgLegendTotal: dark ? '#1e2530' : '#f0f0f0',
+      textStat: dark ? '#e0e8f0' : '#1a1a2e',
+      accent: dark ? '#ff8c00' : '#1a1a2e',
+    };
+  }, [theme]);
 
   const filterSig = `${ownerFilter}-${categoryFilter}-${timeRange}-${selectedAccounts.join(',')}-${showProjections}`;
   useEffect(() => {
@@ -1177,8 +1328,8 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
         setTooltipBump(k => k + 1);
       }
     };
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const ownerNames = useMemo(() => ownerRecords.map(o => o.name), [ownerRecords]);
@@ -1238,8 +1389,12 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
   return html`<div class="app">
     <header>
       <h1>🐳 MST</h1>
-      <div style=${{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style=${{ fontSize: '0.8rem', color: '#556677' }}>${userEmail}</span>
+      <div style=${{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div class="theme-toggle">
+          <button class=${'theme-btn' + (theme === 'light' ? ' active' : '')} onClick=${() => switchTheme('light')}>☀</button>
+          <button class=${'theme-btn' + (theme === 'dark' ? ' active' : '')} onClick=${() => switchTheme('dark')}>☾</button>
+        </div>
+        <span style=${{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>${userEmail}</span>
         <button class="btn-secondary btn-sm" onClick=${onLogout}>Sign Out</button>
       </div>
     </header>
@@ -1279,8 +1434,8 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
               onClick=${() => setCategoryFilter(c.id)}
               title=${c.tooltip || ''}><span class="label-full">${c.label}</span><span class="label-short">${c.short}</span></button>`)}
           </div>
-          <div class="control-group" style=${{ flex: '1 1 100%', borderTop: '1px solid #1e2530', paddingTop: 4, marginTop: 0 }}>
-            <${AccountLegend} accounts=${filteredAccounts} selectedIds=${selectedAccounts} onSelect=${setSelectedAccounts} />
+          <div class="control-group" style=${{ flex: '1 1 100%', borderTop: '1px solid var(--border-main)', paddingTop: 4, marginTop: 0 }}>
+            <${AccountLegend} accounts=${filteredAccounts} selectedIds=${selectedAccounts} onSelect=${setSelectedAccounts} tc=${tc} />
           </div>
         </div>
       </div>
@@ -1308,7 +1463,7 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
           <div class="chart-card-body">
             <${SavingsLineChart} accounts=${filteredAccounts} data=${chartData} selectedIds=${selectedAccounts}
               projectionData=${showProjections ? buildProjectionData(chartData, filteredAccounts, snapshots, selectedAccounts, projectionRate) : null}
-              chartKey=${chartKey} tooltipKey=${tooltipBump} />
+              chartKey=${chartKey} tooltipKey=${tooltipBump} tc=${tc} />
           </div>
         </div>
 
@@ -1316,14 +1471,14 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
           <div class="chart-card-header"><h2>Savings Breakdown</h2></div>
           <div class="chart-card-body">
             <${SavingsBarChart} accounts=${filteredAccounts} data=${chartData} selectedIds=${selectedAccounts}
-              chartKey=${chartKey} tooltipKey=${tooltipBump} />
+              chartKey=${chartKey} tooltipKey=${tooltipBump} tc=${tc} />
           </div>
         </div>
       </div>
 
       <div class="card">
         <h2>Savings Data</h2>
-        <${DataTable} accounts=${filteredAccounts} data=${chartData} selectedIds=${selectedAccounts} />
+        <${DataTable} accounts=${filteredAccounts} data=${chartData} selectedIds=${selectedAccounts} tc=${tc} />
       </div>
     </div>`}
 
