@@ -40,10 +40,14 @@
   .account-list { display: flex; flex-direction: column; gap: 6px; }
   .account-item { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid #eee; border-radius: 6px; }
   .account-name { flex: 1; font-weight: 500; }
-  .snapshot-grid { display: flex; flex-direction: column; gap: 8px; }
-  .snapshot-row { display: flex; align-items: center; gap: 8px; }
-  .snapshot-row label { font-weight: 500; min-width: 200px; }
-  .snapshot-row input { max-width: 150px; }
+  .snapshot-table th, .snapshot-table td { text-align: left; vertical-align: middle; }
+  .snapshot-table th:nth-child(2), .snapshot-table td:nth-child(2) { width: 150px; }
+  .snapshot-table th:last-child, .snapshot-table td:last-child { text-align: right; }
+  .snapshot-table th:last-child, .snapshot-table td:last-child { width: 220px; }
+  .snapshot-table input { display: block; max-width: 180px; margin-left: auto; text-align: right; }
+  .snapshot-account { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .snapshot-color { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; }
+  .snapshot-default { color: #FF9800; font-size: 0.75rem; white-space: nowrap; }
   .chart-container { width: 100%; }
   .table-scroll { overflow-x: auto; }
   .auth-container { max-width: 360px; margin: 80px auto; }
@@ -153,10 +157,9 @@ function fmtDate(d) {
 }
 
 const DEFAULT_COLORS = ['#00BCD4','#4CAF50','#9E9E9E','#FF9800','#F44336','#9C27B0','#2196F3','#E91E63','#795548','#607D8B'];
-const CATEGORIES = ['Cash', 'Available Assets', 'Restricted Assets'];
+const CATEGORIES = ['Cash', 'Available Assets', 'Restricted Assets', 'Properties', 'Pensions'];
 
 const TIME_RANGES = [
-  { id: '1M', label: '1M', months: 1 },
   { id: '3M', label: '3M', months: 3 },
   { id: '1Y', label: '1Y', months: 12 },
   { id: '2Y', label: '2Y', months: 24 },
@@ -549,18 +552,32 @@ function SnapshotEntry({ accounts, snapshots, onSave }) {
       <span style=${{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#FF9800' }}></span>
       Values pre-filled from last snapshot. Edit any field to override.
     </div>`}
-    <div class="snapshot-grid">
-      ${accounts.map(a => html`<div key=${a.id} class="snapshot-row">
-        <label><span style=${{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: a.color, marginRight: 6 }}></span>${a.name}</label>
-        <div style=${{ position: 'relative' }}>
-          <input type="number" placeholder="0" value=${values[a.id] || ''}
-            onInput=${e => handleInput(a.id, e.target.value)}
-            style=${defaulted[a.id] ? { borderColor: '#FF9800', background: '#FFF8E1' } : {}} />
-          ${defaulted[a.id] && html`<span style=${{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#FF9800', pointerEvents: 'none' }}>
-            ${fmtDate(defaulted[a.id])}
-          </span>`}
-        </div>
-      </div>`)}
+    <div class="table-scroll">
+      <table class="snapshot-table">
+        <thead>
+          <tr>
+            <th>Account</th>
+            ${hasDefaults && html`<th>Pre-filled From</th>`}
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${accounts.map(a => html`<tr key=${a.id}>
+            <td>
+              <span class="snapshot-account">
+                <span class="snapshot-color" style=${{ background: a.color }}></span>
+                ${a.name}
+              </span>
+            </td>
+            ${hasDefaults && html`<td class="snapshot-default">${defaulted[a.id] ? fmtDate(defaulted[a.id]) : ''}</td>`}
+            <td>
+              <input type="number" placeholder="0" value=${values[a.id] || ''}
+                onInput=${e => handleInput(a.id, e.target.value)}
+                style=${defaulted[a.id] ? { borderColor: '#FF9800', background: '#FFF8E1' } : {}} />
+            </td>
+          </tr>`)}
+        </tbody>
+      </table>
     </div>
     ${accounts.length === 0 && html`<div class="empty-state">Add accounts first in the Accounts tab.</div>`}
     <div style=${{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -591,21 +608,22 @@ function buildChartData(accounts, snapshots, cutoffDate) {
 
 // ── Account Legend ───────────────────────────────────────────────
 
-function AccountLegend({ accounts, selectedId, onSelect }) {
+function AccountLegend({ accounts, selectedIds, onSelect }) {
+  const hasSelection = selectedIds.length > 0;
   const handleClick = (id) => {
-    onSelect(selectedId === id ? null : id);
+    onSelect(selectedIds.includes(id) ? selectedIds.filter(selectedId => selectedId !== id) : [...selectedIds, id]);
   };
 
   return html`<div class="account-legend">
-    <div class=${'legend-item' + (selectedId === null ? ' selected' : selectedId ? ' dimmed' : '')}
-      onClick=${() => onSelect(null)}
+    <div class=${'legend-item' + (!hasSelection ? ' selected' : ' dimmed')}
+      onClick=${() => onSelect([])}
       style=${{ background: '#f0f0f0', color: '#1a1a2e' }}>
       <span class="legend-dot" style=${{ background: '#1a1a2e' }}></span>
       Total
     </div>
     ${accounts.map(a => {
-      const isSelected = selectedId === a.id;
-      const isDimmed = selectedId !== null && !isSelected;
+      const isSelected = selectedIds.includes(a.id);
+      const isDimmed = hasSelection && !isSelected;
       return html`<div key=${a.id}
         class=${'legend-item' + (isSelected ? ' selected' : '') + (isDimmed ? ' dimmed' : '')}
         onClick=${() => handleClick(a.id)}
@@ -619,8 +637,8 @@ function AccountLegend({ accounts, selectedId, onSelect }) {
 
 // ── Projection Chart Data ────────────────────────────────────────
 
-function buildProjectionData(chartData, accounts, snapshots, selectedId) {
-  const proj = calcProjections(accounts, snapshots, selectedId);
+function buildProjectionData(chartData, accounts, snapshots, selectedIds) {
+  const proj = calcProjections(accounts, snapshots, selectedIds);
   if (!proj || chartData.length === 0) return null;
 
   const last = chartData[chartData.length - 1];
@@ -628,7 +646,7 @@ function buildProjectionData(chartData, accounts, snapshots, selectedId) {
   const currentValue = proj.currentValue;
 
   const conservativeRate = proj.scenarios[0].rate;
-  const expectedRate = proj.scenarios[1].rate;
+  const averageRate = proj.scenarios[1].rate;
   const optimisticRate = proj.scenarios[2].rate;
 
   const points = [{ date: last.date, dateLabel: last.dateLabel, proj_expected: currentValue, proj_low: currentValue, proj_high: currentValue }];
@@ -641,7 +659,7 @@ function buildProjectionData(chartData, accounts, snapshots, selectedId) {
     points.push({
       date: dateStr,
       dateLabel: fmtDate(dateStr),
-      proj_expected: currentValue * Math.pow(1 + expectedRate, years),
+      proj_expected: currentValue * Math.pow(1 + averageRate, years),
       proj_low: currentValue * Math.pow(1 + conservativeRate, years),
       proj_high: currentValue * Math.pow(1 + optimisticRate, years),
     });
@@ -651,8 +669,9 @@ function buildProjectionData(chartData, accounts, snapshots, selectedId) {
 
 // ── Line Chart ───────────────────────────────────────────────────
 
-function SavingsLineChart({ accounts, data, selectedId, projectionData }) {
+function SavingsLineChart({ accounts, data, selectedIds, projectionData }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
+  const hasSelection = selectedIds.length > 0;
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload) return null;
@@ -694,19 +713,20 @@ function SavingsLineChart({ accounts, data, selectedId, projectionData }) {
         <${Tooltip} content=${html`<${CustomTooltip} />`} trigger="click" />
         ${projectionData && html`<${Area} type="monotone" dataKey="proj_range" stroke="none" fill="#2196F3" fillOpacity=${0.12} name="Projection range" dot=${false} activeDot=${false} connectNulls=${true} />`}
         ${accounts.map(a => {
-          const isHighlighted = selectedId === null || selectedId === a.id;
+          const isSelected = selectedIds.includes(a.id);
+          const isHighlighted = !hasSelection || isSelected;
           return html`<${Line} key=${a.id} type="monotone" dataKey=${a.id} name=${a.name}
-            stroke=${a.color} strokeWidth=${selectedId === a.id ? 3 : 2}
+            stroke=${a.color} strokeWidth=${isSelected ? 3 : 2}
             strokeOpacity=${isHighlighted ? 1 : 0.15}
-            dot=${isHighlighted ? { r: selectedId === a.id ? 5 : 3, fill: a.color, strokeWidth: 0 } : false}
+            dot=${isHighlighted ? { r: isSelected ? 5 : 3, fill: a.color, strokeWidth: 0 } : false}
             activeDot=${isHighlighted ? { r: 7, strokeWidth: 2, stroke: '#fff', cursor: 'pointer' } : false} connectNulls=${false} />`;
         })}
         <${Line} type="monotone" dataKey="total" name="Total"
-          stroke="#1a1a2e" strokeWidth=${selectedId === null ? 3 : 2}
-          strokeOpacity=${selectedId === null ? 1 : 0.15}
-          strokeDasharray=${selectedId === null ? '' : '4 4'}
-          dot=${selectedId === null ? { r: 4, fill: '#1a1a2e', strokeWidth: 0 } : false} connectNulls=${false} />
-        ${projectionData && html`<${Line} type="monotone" dataKey="proj_expected" name="Expected projection"
+          stroke="#1a1a2e" strokeWidth=${!hasSelection ? 3 : 2}
+          strokeOpacity=${!hasSelection ? 1 : 0.15}
+          strokeDasharray=${!hasSelection ? '' : '4 4'}
+          dot=${!hasSelection ? { r: 4, fill: '#1a1a2e', strokeWidth: 0 } : false} connectNulls=${false} />
+        ${projectionData && html`<${Line} type="monotone" dataKey="proj_expected" name="Average projection"
           stroke="#2196F3" strokeWidth=${2} strokeDasharray="6 4" dot=${false}
           activeDot=${{ r: 5, fill: '#2196F3' }} connectNulls=${true} />
         <${Line} type="monotone" dataKey="proj_high" name="Optimistic"
@@ -722,8 +742,9 @@ function SavingsLineChart({ accounts, data, selectedId, projectionData }) {
 
 // ── Stacked Bar Chart ────────────────────────────────────────────
 
-function SavingsBarChart({ accounts, data, selectedId }) {
+function SavingsBarChart({ accounts, data, selectedIds }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
+  const hasSelection = selectedIds.length > 0;
 
   const renderLabel = (props) => {
     const { x, y, width, height, value } = props;
@@ -742,7 +763,7 @@ function SavingsBarChart({ accounts, data, selectedId }) {
           contentStyle=${{ background: '#1a1a2e', border: 'none', borderRadius: 8, color: '#fff' }}
           labelStyle=${{ color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }} />
         ${accounts.map(a => {
-          const isHighlighted = selectedId === null || selectedId === a.id;
+          const isHighlighted = !hasSelection || selectedIds.includes(a.id);
           return html`<${Bar} key=${a.id} dataKey=${a.id} name=${a.name} stackId="stack"
             fill=${a.color} fillOpacity=${isHighlighted ? 1 : 0.15}>
             ${isHighlighted && html`<${LabelList} dataKey=${a.id} content=${renderLabel} />`}
@@ -755,32 +776,33 @@ function SavingsBarChart({ accounts, data, selectedId }) {
 
 // ── Data Table ───────────────────────────────────────────────────
 
-function DataTable({ accounts, data, selectedId }) {
+function DataTable({ accounts, data, selectedIds }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
+  const hasSelection = selectedIds.length > 0;
 
   return html`<div class="table-scroll">
     <table>
       <thead><tr>
         <th style=${{ textAlign: 'left' }}>Date</th>
         ${accounts.map(a => {
-          const isHighlighted = selectedId === a.id;
-          const isDimmed = selectedId !== null && !isHighlighted;
+          const isHighlighted = selectedIds.includes(a.id);
+          const isDimmed = hasSelection && !isHighlighted;
           return html`<th key=${a.id} style=${{ opacity: isDimmed ? 0.3 : 1 }}>
             <span style=${{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: a.color, marginRight: 4 }}></span>
             ${a.name}
           </th>`;
         })}
-        <th style=${{ opacity: selectedId !== null ? 0.3 : 1 }}>Total</th>
+        <th style=${{ opacity: hasSelection ? 0.3 : 1 }}>Total</th>
       </tr></thead>
       <tbody>
         ${[...data].reverse().map(d => html`<tr key=${d.date}>
           <td style=${{ textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>${d.dateLabel}</td>
           ${accounts.map(a => {
-            const isHighlighted = selectedId === a.id;
-            const isDimmed = selectedId !== null && !isHighlighted;
+            const isHighlighted = selectedIds.includes(a.id);
+            const isDimmed = hasSelection && !isHighlighted;
             return html`<td key=${a.id} class=${isHighlighted ? 'highlighted' : isDimmed ? 'dimmed' : ''}>${d[a.id] ? Number(d[a.id]).toLocaleString('en-GB') : '0'}</td>`;
           })}
-          <td class=${selectedId !== null ? 'dimmed' : ''} style=${{ fontWeight: 600 }}>${GBP(d.total)}</td>
+          <td class=${hasSelection ? 'dimmed' : ''} style=${{ fontWeight: 600 }}>${GBP(d.total)}</td>
         </tr>`)}
       </tbody>
     </table>
@@ -797,10 +819,16 @@ const PROJECTION_HORIZONS = [
   { label: '+10 years', years: 10 },
 ];
 
-function calcProjections(accounts, snapshots, selectedId) {
-  const accountIds = selectedId ? [selectedId] : accounts.map(a => a.id);
+const PROJECTION_RATES = {
+  conservative: 0.02,
+  average: 0.04,
+  optimistic: 0.07,
+};
+
+function calcProjections(accounts, snapshots, selectedIds) {
+  const accountIds = selectedIds.length > 0 ? selectedIds : accounts.map(a => a.id);
   const dates = [...new Set(snapshots.map(s => s.date))].sort();
-  if (dates.length < 2) return null;
+  if (dates.length < 1) return null;
 
   const getTotal = (date) => {
     let sum = 0;
@@ -815,35 +843,9 @@ function calcProjections(accounts, snapshots, selectedId) {
   const currentValue = getTotal(latestDate);
   if (currentValue <= 0) return null;
 
-  const annualGrowthRates = [];
-  for (let i = 1; i < dates.length; i++) {
-    const prev = getTotal(dates[i - 1]);
-    const curr = getTotal(dates[i]);
-    if (prev <= 0) continue;
-    const d0 = new Date(dates[i - 1]);
-    const d1 = new Date(dates[i]);
-    const years = (d1 - d0) / (365.25 * 24 * 60 * 60 * 1000);
-    if (years < 0.01) continue;
-    const annualized = Math.pow(curr / prev, 1 / years) - 1;
-    if (isFinite(annualized) && annualized > -0.9 && annualized < 5) {
-      annualGrowthRates.push(annualized);
-    }
-  }
-
-  if (annualGrowthRates.length < 2) return null;
-
-  const sorted = [...annualGrowthRates].sort((a, b) => a - b);
-  const percentile = (arr, p) => {
-    const idx = (arr.length - 1) * p;
-    const lo = Math.floor(idx);
-    const hi = Math.ceil(idx);
-    if (lo === hi) return arr[lo];
-    return arr[lo] + (arr[hi] - arr[lo]) * (idx - lo);
-  };
-
-  const conservativeRate = percentile(sorted, 0.25);
-  const expectedRate = percentile(sorted, 0.5);
-  const optimisticRate = percentile(sorted, 0.75);
+  const conservativeRate = PROJECTION_RATES.conservative;
+  const averageRate = PROJECTION_RATES.average;
+  const optimisticRate = PROJECTION_RATES.optimistic;
 
   const project = (rate, years) => currentValue * Math.pow(1 + rate, years);
 
@@ -853,25 +855,26 @@ function calcProjections(accounts, snapshots, selectedId) {
     scenarios: [
       { name: 'Conservative', rate: conservativeRate, cls: 'conservative',
         values: PROJECTION_HORIZONS.map(h => project(conservativeRate, h.years)) },
-      { name: 'Expected', rate: expectedRate, cls: 'expected',
-        values: PROJECTION_HORIZONS.map(h => project(expectedRate, h.years)) },
+      { name: 'Average', rate: averageRate, cls: 'expected',
+        values: PROJECTION_HORIZONS.map(h => project(averageRate, h.years)) },
       { name: 'Optimistic', rate: optimisticRate, cls: 'optimistic',
         values: PROJECTION_HORIZONS.map(h => project(optimisticRate, h.years)) },
     ]
   };
 }
 
-function ProjectionsCard({ accounts, snapshots, selectedId }) {
-  const projections = useMemo(() => calcProjections(accounts, snapshots, selectedId), [accounts, snapshots, selectedId]);
+function ProjectionsCard({ accounts, snapshots, selectedIds }) {
+  const projections = useMemo(() => calcProjections(accounts, snapshots, selectedIds), [accounts, snapshots, selectedIds]);
 
   if (!projections) return html`<div class="card"><h2>Projections</h2><div class="empty-state">Not enough data to project.</div></div>`;
 
-  const label = selectedId ? accounts.find(a => a.id === selectedId)?.name : 'Total';
+  const selectedAccounts = accounts.filter(a => selectedIds.includes(a.id));
+  const label = selectedAccounts.length > 0 ? selectedAccounts.map(a => a.name).join(', ') : 'Total';
 
   return html`<div class="card">
     <h2>Projections</h2>
     <div style=${{ fontSize: '0.8rem', color: '#999', marginBottom: 12 }}>
-      Based on historical growth rates for <strong style=${{ color: '#333' }}>${label}</strong> (current: ${GBP(projections.currentValue)} as of ${projections.latestDate})
+      Based on fixed growth rates for <strong style=${{ color: '#333' }}>${label}</strong> (current: ${GBP(projections.currentValue)} as of ${projections.latestDate})
     </div>
     <table class="projections-table">
       <thead><tr>
@@ -898,9 +901,9 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
   const { owners: ownerRecords, loading: ownersLoading, add: addOwner, remove: removeOwner } = useOwners(supabase);
   const [tab, setTab] = useState('dashboard');
   const [ownerFilter, setOwnerFilter] = useState('All');
-  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [categoryFilters, setCategoryFilters] = useState([]);
   const [timeRange, setTimeRange] = useState('ALL');
-  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [selectedAccounts, setSelectedAccounts] = useState([]);
   const [showProjections, setShowProjections] = useState(false);
 
   const ownerNames = useMemo(() => ownerRecords.map(o => o.name), [ownerRecords]);
@@ -910,11 +913,34 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
   const filteredAccounts = useMemo(() =>
     visibleAccounts.filter(a => {
       if (ownerFilter !== 'All' && (a.owner || 'Joint') !== ownerFilter) return false;
-      if (categoryFilter !== 'All' && (a.category || 'Cash') !== categoryFilter) return false;
+      if (categoryFilters.length > 0 && !categoryFilters.includes(a.category || 'Cash')) return false;
       return true;
     }),
-    [visibleAccounts, ownerFilter, categoryFilter]
+    [visibleAccounts, ownerFilter, categoryFilters]
   );
+
+  useEffect(() => {
+    const filteredAccountIds = new Set(filteredAccounts.map(a => a.id));
+    setSelectedAccounts(selected => selected.filter(id => filteredAccountIds.has(id)));
+  }, [filteredAccounts]);
+
+  const toggleCategory = (category) => {
+    if (category === 'All') {
+      setCategoryFilters([]);
+      return;
+    }
+    setCategoryFilters(filters => filters.includes(category)
+      ? filters.filter(item => item !== category)
+      : [...filters, category]);
+  };
+
+  const selectedAccountSet = useMemo(() => new Set(selectedAccounts), [selectedAccounts]);
+  const selectedAccountLabel = useMemo(() => {
+    const selected = filteredAccounts.filter(a => selectedAccountSet.has(a.id));
+    if (selected.length === 0) return 'Total';
+    if (selected.length === 1) return selected[0].name;
+    return `${selected.length} accounts`;
+  }, [filteredAccounts, selectedAccountSet]);
 
   const cutoffDate = useMemo(() => getDateCutoff(timeRange), [timeRange]);
   const chartData = useMemo(() => buildChartData(filteredAccounts, snapshots, cutoffDate), [filteredAccounts, snapshots, cutoffDate]);
@@ -923,12 +949,12 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
     if (chartData.length < 1) return null;
     const latest = chartData[chartData.length - 1];
     const first = chartData[0];
-    const currentTotal = selectedAccount ? (latest[selectedAccount] || 0) : latest.total;
-    const startTotal = selectedAccount ? (first[selectedAccount] || 0) : first.total;
+    const currentTotal = selectedAccounts.length > 0 ? selectedAccounts.reduce((sum, id) => sum + (latest[id] || 0), 0) : latest.total;
+    const startTotal = selectedAccounts.length > 0 ? selectedAccounts.reduce((sum, id) => sum + (first[id] || 0), 0) : first.total;
     const change = currentTotal - startTotal;
     const changePct = startTotal > 0 ? ((change / startTotal) * 100).toFixed(1) : 0;
     return { currentTotal, change, changePct, latestDate: latest.dateLabel };
-  }, [chartData, selectedAccount]);
+  }, [chartData, selectedAccounts]);
 
   if (accLoading || snapLoading || ownersLoading) return html`<div class="loading">Loading...</div>`;
 
@@ -972,8 +998,8 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
           <div class="control-group">
             <span class="control-group-label">Category</span>
             ${['All', ...CATEGORIES].map(c => html`<button key=${c}
-              class=${'range-btn' + (categoryFilter === c ? ' active' : '')}
-              onClick=${() => setCategoryFilter(c)}>${c}</button>`)}
+              class=${'range-btn' + ((c === 'All' ? categoryFilters.length === 0 : categoryFilters.includes(c)) ? ' active' : '')}
+              onClick=${() => toggleCategory(c)}>${c}</button>`)}
           </div>
           <div class="control-group" style=${{ marginLeft: 'auto' }}>
             <button class=${'projection-toggle' + (showProjections ? ' active' : '')}
@@ -983,7 +1009,7 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
           </div>
         </div>
         <div class="dashboard-controls">
-          <${AccountLegend} accounts=${filteredAccounts} selectedId=${selectedAccount} onSelect=${setSelectedAccount} />
+          <${AccountLegend} accounts=${filteredAccounts} selectedIds=${selectedAccounts} onSelect=${setSelectedAccounts} />
         </div>
       </div>
 
@@ -991,7 +1017,7 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
         <div class="stats-row" style=${{ paddingTop: 16 }}>
           <div class="stat">
             <span class="stat-value">${GBP(stats.currentTotal)}</span>
-            <span class="stat-label">${selectedAccount ? filteredAccounts.find(a => a.id === selectedAccount)?.name : 'Total'} — ${stats.latestDate}</span>
+            <span class="stat-label">${selectedAccountLabel} — ${stats.latestDate}</span>
           </div>
           <div class="stat">
             <span class=${'stat-change ' + (stats.change >= 0 ? 'positive' : 'negative')}>
@@ -1002,26 +1028,26 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
         </div>
       </div>`}
 
-      ${showProjections && html`<${ProjectionsCard} accounts=${filteredAccounts} snapshots=${snapshots} selectedId=${selectedAccount} />`}
+      ${showProjections && html`<${ProjectionsCard} accounts=${filteredAccounts} snapshots=${snapshots} selectedIds=${selectedAccounts} />`}
 
       <div class="chart-card">
         <div class="chart-card-header"><h2>Savings Over Time</h2></div>
         <div class="chart-card-body">
-          <${SavingsLineChart} accounts=${filteredAccounts} data=${chartData} selectedId=${selectedAccount}
-            projectionData=${showProjections ? buildProjectionData(chartData, filteredAccounts, snapshots, selectedAccount) : null} />
+          <${SavingsLineChart} accounts=${filteredAccounts} data=${chartData} selectedIds=${selectedAccounts}
+            projectionData=${showProjections ? buildProjectionData(chartData, filteredAccounts, snapshots, selectedAccounts) : null} />
         </div>
       </div>
 
       <div class="chart-card">
         <div class="chart-card-header"><h2>Savings Breakdown</h2></div>
         <div class="chart-card-body">
-          <${SavingsBarChart} accounts=${filteredAccounts} data=${chartData} selectedId=${selectedAccount} />
+          <${SavingsBarChart} accounts=${filteredAccounts} data=${chartData} selectedIds=${selectedAccounts} />
         </div>
       </div>
 
       <div class="card">
         <h2>Savings Data</h2>
-        <${DataTable} accounts=${filteredAccounts} data=${chartData} selectedId=${selectedAccount} />
+        <${DataTable} accounts=${filteredAccounts} data=${chartData} selectedIds=${selectedAccounts} />
       </div>
     </div>`}
 
