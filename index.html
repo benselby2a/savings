@@ -281,6 +281,7 @@
 
   /* Theme toggle */
   .theme-toggle { display: flex; gap: 2px; align-items: center; }
+  [data-hub] .theme-toggle { display: none; }
   .theme-btn { padding: 3px 8px; font-size: 0.7rem; font-weight: 600; background: var(--bg-btn); color: var(--text-btn); border: 1px solid var(--border-btn); border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
   .theme-btn:hover { background: var(--bg-btn-hover); }
   .theme-btn.active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-bg); }
@@ -376,10 +377,20 @@
 </head>
 <body>
 <script>
-  // Apply saved theme immediately to prevent flash
   (function() {
-    var t = localStorage.getItem('mst-theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', t);
+    var inHub = window !== window.parent;
+    if (inHub) {
+      document.documentElement.setAttribute('data-hub', '');
+      window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'theme') {
+          document.documentElement.setAttribute('data-theme', e.data.value);
+          window.dispatchEvent(new CustomEvent('hub-theme', { detail: e.data.value }));
+        }
+      });
+    } else {
+      var t = localStorage.getItem('mst-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    }
   })();
 </script>
 <div id="root"></div>
@@ -1294,12 +1305,19 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
   const chartAreaRef = useRef(null);
   const prevFiltersRef = useRef('');
   const [chartKey, setChartKey] = useState(0);
-  const [theme, setTheme] = useState(() => localStorage.getItem('mst-theme') || 'dark');
+  const inHub = window !== window.parent;
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || localStorage.getItem('mst-theme') || 'dark');
   const switchTheme = useCallback((t) => {
     setTheme(t);
     document.documentElement.setAttribute('data-theme', t);
-    localStorage.setItem('mst-theme', t);
-  }, []);
+    if (!inHub) localStorage.setItem('mst-theme', t);
+  }, [inHub]);
+  useEffect(() => {
+    if (!inHub) return;
+    const handler = (e) => switchTheme(e.detail);
+    window.addEventListener('hub-theme', handler);
+    return () => window.removeEventListener('hub-theme', handler);
+  }, [inHub, switchTheme]);
   const tc = useMemo(() => {
     const dark = theme === 'dark';
     return {
