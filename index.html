@@ -281,7 +281,8 @@
 
   /* Theme toggle */
   .theme-toggle { display: flex; gap: 2px; align-items: center; }
-  [data-hub] .theme-toggle { display: none; }
+  .hub-hide { display: flex; align-items: center; gap: 10px; }
+  [data-hub] .hub-hide { display: none; }
   .theme-btn { padding: 3px 8px; font-size: 0.7rem; font-weight: 600; background: var(--bg-btn); color: var(--text-btn); border: 1px solid var(--border-btn); border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
   .theme-btn:hover { background: var(--bg-btn-hover); }
   .theme-btn.active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-bg); }
@@ -1411,12 +1412,14 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
     <header>
       <h1>🐳 MST</h1>
       <div style=${{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div class="theme-toggle">
-          <button class=${'theme-btn' + (theme === 'light' ? ' active' : '')} onClick=${() => switchTheme('light')}>☀</button>
-          <button class=${'theme-btn' + (theme === 'dark' ? ' active' : '')} onClick=${() => switchTheme('dark')}>☾</button>
+        <div class="hub-hide">
+          <div class="theme-toggle">
+            <button class=${'theme-btn' + (theme === 'light' ? ' active' : '')} onClick=${() => switchTheme('light')}>☀</button>
+            <button class=${'theme-btn' + (theme === 'dark' ? ' active' : '')} onClick=${() => switchTheme('dark')}>☾</button>
+          </div>
+          <span style=${{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>${userEmail}</span>
+          <button class="btn-secondary btn-sm" onClick=${onLogout}>Sign Out</button>
         </div>
-        <span style=${{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>${userEmail}</span>
-        <button class="btn-secondary btn-sm" onClick=${onLogout}>Sign Out</button>
       </div>
     </header>
     <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
