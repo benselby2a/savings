@@ -190,7 +190,7 @@
   .snapshot-default { color: var(--color-default-tag); font-size: 0.7rem; white-space: nowrap; }
   .chart-container { width: 100%; animation: fadeIn 0.6s ease; }
   .chart-split { display: flex; align-items: stretch; }
-  .chart-yaxis-pin { flex-shrink: 0; width: 60px; position: relative; z-index: 2; background: var(--bg-card); }
+  .chart-yaxis-pin { flex-shrink: 0; width: 55px; position: relative; z-index: 2; background: var(--bg-card); overflow: hidden; }
   .chart-scroll { flex: 1; -webkit-overflow-scrolling: touch; scrollbar-width: thin; overflow-y: hidden; overflow-x: scroll; }
   .chart-scroll::-webkit-scrollbar { height: 4px; }
   .chart-scroll::-webkit-scrollbar-thumb { background: var(--border-main); border-radius: 2px; }
@@ -420,6 +420,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: '
 // ── Formatting Helpers ───────────────────────────────────────────
 
 const GBP = (v) => v == null ? '' : '£' + Number(v).toLocaleString('en-GB', { maximumFractionDigits: 0 });
+const compactGBP = (v) => {
+  if (v == null) return '';
+  const n = Number(v);
+  if (n >= 1000000) return '£' + (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return '£' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
+  return '£' + n.toFixed(0);
+};
 
 function fmtDate(d) {
   const dt = new Date(d + 'T00:00:00');
@@ -1049,7 +1056,7 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
     if (lineScrollRef.current) lineScrollRef.current.scrollLeft = lineScrollRef.current.scrollWidth;
   }, [mergedData.length, chartKey]);
 
-  const yAxisProps = { tickFormatter: GBP, tick: { fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }, axisLine: false, tickLine: false, width: 55, domain: yDomain, allowDataOverflow: hasSelection };
+  const yAxisProps = { tickFormatter: compactGBP, tick: { fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }, axisLine: false, tickLine: false, width: 50, domain: yDomain, allowDataOverflow: hasSelection };
 
   return html`<div class="chart-container" onClickCapture=${() => { if (!tooltipHidden) setTooltipHidden(true); }}>
     <div class="chart-split">
@@ -1109,14 +1116,6 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey, tc
   const [tooltipHidden2, setTooltipHidden2] = useState(false);
   useEffect(() => { if (tooltipKey !== prevTK2.current) { prevTK2.current = tooltipKey; setTooltipHidden2(true); } }, [tooltipKey]);
 
-  const compactGBP = (v) => {
-    if (v == null) return '';
-    const n = Number(v);
-    if (n >= 1000000) return '£' + (n / 1000000).toFixed(1) + 'M';
-    if (n >= 1000) return '£' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
-    return '£' + n.toFixed(0);
-  };
-
   const renderLabel = (props) => {
     const { x, y, width, height, value } = props;
     if (!value || height < 14 || width < 24) return null;
@@ -1146,7 +1145,7 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey, tc
     return max;
   }, [data, accounts, selectedIds, hasSelection]);
 
-  const barYAxisProps = { tickFormatter: GBP, tick: { fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }, axisLine: false, tickLine: false, width: 55 };
+  const barYAxisProps = { tickFormatter: compactGBP, tick: { fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }, axisLine: false, tickLine: false, width: 50 };
 
   return html`<div class="chart-container" onClickCapture=${() => { if (!tooltipHidden2) setTooltipHidden2(true); }}>
     <div class="chart-split">
