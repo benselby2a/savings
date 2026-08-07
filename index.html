@@ -435,6 +435,11 @@ function fmtDate(d) {
   return m + ' ' + y;
 }
 
+function fmtDateFull(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+}
+
 const PALETTE = [
   '#2196F3','#4CAF50','#FF9800','#E91E63','#00BCD4',
   '#9C27B0','#F44336','#8BC34A','#FF5722','#3F51B5',
@@ -827,15 +832,15 @@ function SnapshotEntry({ accounts, snapshots, onSave }) {
   return html`<div class="card">
     <h2>Enter Snapshot</h2>
     <div style=${{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-      <div class="form-group" style=${{ maxWidth: 200 }}>
+      <div class="form-group" style=${{ flex: '0 1 200px', minWidth: 180 }}>
         <label>Date</label>
         <input type="date" value=${date} onInput=${e => setDate(e.target.value)} />
       </div>
-      ${dates.length > 0 && html`<div class="form-group" style=${{ maxWidth: 220 }}>
+      ${dates.length > 0 && html`<div class="form-group" style=${{ flex: '0 1 220px', minWidth: 200 }}>
         <label>Edit existing date</label>
         <select value=${dates.includes(date) ? date : ''} onChange=${e => { if (e.target.value) setDate(e.target.value); }}>
           <option value="">— Select —</option>
-          ${[...dates].reverse().map(d => html`<option key=${d} value=${d}>${fmtDate(d)}</option>`)}
+          ${[...dates].reverse().map(d => html`<option key=${d} value=${d}>${fmtDateFull(d)}</option>`)}
         </select>
       </div>`}
     </div>
@@ -860,7 +865,7 @@ function SnapshotEntry({ accounts, snapshots, onSave }) {
                 ${a.name}
               </span>
             </td>
-            ${hasDefaults && html`<td class="snapshot-default">${defaulted[a.id] ? fmtDate(defaulted[a.id]) : ''}</td>`}
+            ${hasDefaults && html`<td class="snapshot-default">${defaulted[a.id] ? fmtDateFull(defaulted[a.id]) : ''}</td>`}
             <td>
               <input type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*" placeholder="0" value=${values[a.id] || ''}
                 onInput=${e => handleInput(a.id, e.target.value)}
