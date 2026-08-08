@@ -1166,6 +1166,11 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tc }) {
 
   const barYAxisProps = { tickFormatter: compactGBP, tick: { fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }, axisLine: false, tickLine: false, width: 50 };
 
+  const renderSelectionHighlight = (props) => {
+    if (props.index !== selectedIndex) return null;
+    return html`<rect x=${props.x} y=${props.y} width=${props.width} height=${props.height} rx=${6} fill=${tc.accent} fillOpacity=${0.12} />`;
+  };
+
   return html`<div class="chart-container">
     <div class="breakdown-summary">
       <div class="breakdown-summary-date">${selected.dateLabel}</div>
@@ -1201,10 +1206,11 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tc }) {
               <${CartesianGrid} strokeDasharray="3 3" stroke=${tc.grid} />
               <${XAxis} dataKey="dateLabel" tick=${{ fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${{ stroke: tc.axisLine }} tickLine=${false} />
               <${YAxis} hide=${true} ...${barYAxisProps} width=${0} />
-              ${accounts.map(a => {
+              ${accounts.map((a, idx) => {
                 const isHighlighted = !hasSelection || selectedIds.includes(a.id);
                 return html`<${Bar} key=${a.id} dataKey=${a.id} name=${a.name} stackId="stack"
                   fill=${a.color} fillOpacity=${isHighlighted ? 1 : 0.15} cursor="pointer"
+                  background=${idx === 0 ? renderSelectionHighlight : false}
                   animationDuration=${1000} animationEasing="ease-in-out">
                   ${isHighlighted && html`<${LabelList} dataKey=${a.id} content=${renderLabel} />`}
                 <//>`;
