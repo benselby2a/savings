@@ -1235,8 +1235,10 @@ function pctChange(curr, prev) {
 
 function PctBadge({ pct }) {
   if (pct == null) return null;
+  const rounded = pct.toFixed(1);
+  if (Number(rounded) === 0) return null;
   const sign = pct >= 0 ? '+' : '';
-  return html`<span class=${'cell-pct ' + (pct >= 0 ? 'positive' : 'negative')}>${sign}${pct.toFixed(1)}%</span>`;
+  return html`<span class=${'cell-pct ' + (pct >= 0 ? 'positive' : 'negative')}>${sign}${rounded}%</span>`;
 }
 
 function DataTable({ accounts, data, selectedIds, tc }) {
