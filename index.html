@@ -1227,7 +1227,7 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tc }) {
 
 function pctChange(curr, prev) {
   const c = Number(curr) || 0;
-  if (c < 1000) return null;
+  if (c < 10000) return null;
   const p = Number(prev);
   if (!prev || !p) return null;
   return ((c - p) / p) * 100;
