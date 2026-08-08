@@ -170,6 +170,10 @@
   .form-group.flex-1 { flex: 1; }
   table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
   th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border-table); }
+  .cell-value-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.3; }
+  .cell-pct { font-size: 0.65rem; font-weight: 600; }
+  .cell-pct.positive { color: var(--color-positive); }
+  .cell-pct.negative { color: var(--color-negative); }
   th { background: var(--bg-input); font-weight: 600; position: sticky; top: 0; color: var(--text-muted); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; }
   th:first-child, td:first-child { text-align: left; font-weight: 500; }
   tr:hover { background: var(--bg-hover-row); }
@@ -189,6 +193,16 @@
   .snapshot-color { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; }
   .snapshot-default { color: var(--color-default-tag); font-size: 0.7rem; white-space: nowrap; }
   .chart-container { width: 100%; animation: fadeIn 0.6s ease; }
+  .breakdown-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; padding: 4px 4px 14px; }
+  .breakdown-summary-date { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); flex: 0 0 auto; }
+  .breakdown-summary-items { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; flex: 1; }
+  .breakdown-summary-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; transition: opacity 0.3s ease; }
+  .breakdown-summary-item.dimmed { opacity: 0.3; }
+  .breakdown-summary-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  .breakdown-summary-name { color: var(--text-muted); }
+  .breakdown-summary-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .breakdown-summary-total { font-weight: 700; padding-left: 12px; border-left: 1px solid var(--border-main); }
+  .breakdown-summary-total .breakdown-summary-name { color: var(--text-primary); }
   .chart-split { display: flex; align-items: stretch; }
   .chart-yaxis-pin { flex-shrink: 0; width: 55px; position: relative; z-index: 2; background: var(--bg-card); overflow: hidden; }
   .chart-scroll { flex: 1; -webkit-overflow-scrolling: touch; scrollbar-width: thin; overflow-y: hidden; overflow-x: scroll; }
@@ -1114,12 +1128,12 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
 
 // ── Stacked Bar Chart ────────────────────────────────────────────
 
-function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey, tc }) {
+function SavingsBarChart({ accounts, data, selectedIds, chartKey, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
   const hasSelection = selectedIds.length > 0;
-  const prevTK2 = useRef(tooltipKey);
-  const [tooltipHidden2, setTooltipHidden2] = useState(false);
-  useEffect(() => { if (tooltipKey !== prevTK2.current) { prevTK2.current = tooltipKey; setTooltipHidden2(true); } }, [tooltipKey]);
+  const [selectedIndex, setSelectedIndex] = useState(data.length - 1);
+  useEffect(() => { setSelectedIndex(data.length - 1); }, [data.length, chartKey]);
+  const selected = data[Math.min(selectedIndex, data.length - 1)];
 
   const renderLabel = (props) => {
     const { x, y, width, height, value } = props;
@@ -1152,7 +1166,26 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey, tc
 
   const barYAxisProps = { tickFormatter: compactGBP, tick: { fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }, axisLine: false, tickLine: false, width: 50 };
 
-  return html`<div class="chart-container" onClickCapture=${() => { if (!tooltipHidden2) setTooltipHidden2(true); }}>
+  const sortedAccounts = [...accounts].sort((a, b) => (Number(selected[b.id]) || 0) - (Number(selected[a.id]) || 0));
+
+  return html`<div class="chart-container">
+    <div class="breakdown-summary">
+      <div class="breakdown-summary-date">${selected.dateLabel}</div>
+      <div class="breakdown-summary-items">
+        ${sortedAccounts.map(a => {
+          const isHighlighted = !hasSelection || selectedIds.includes(a.id);
+          return html`<div key=${a.id} class=${'breakdown-summary-item' + (isHighlighted ? '' : ' dimmed')}>
+            <span class="breakdown-summary-dot" style=${{ background: a.color }}></span>
+            <span class="breakdown-summary-name">${a.name}</span>
+            <span class="breakdown-summary-value">${GBP(selected[a.id])}</span>
+          </div>`;
+        })}
+        <div class="breakdown-summary-item breakdown-summary-total">
+          <span class="breakdown-summary-name">Total</span>
+          <span class="breakdown-summary-value">${GBP(selected.total)}</span>
+        </div>
+      </div>
+    </div>
     <div class="chart-split">
       <div class="chart-yaxis-pin">
         <${ResponsiveContainer} width="100%" height=${500}>
@@ -1166,18 +1199,14 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey, tc
         <div style=${{ minWidth: barMinWidth }}>
           <${ResponsiveContainer} width="100%" height=${500}>
             <${BarChart} key=${chartKey} data=${data} margin=${{ top: 5, right: 30, left: 0, bottom: 5 }}
-              onClick=${(e) => { if (e && e.activePayload) { setTimeout(() => setTooltipHidden2(false), 0); } }}>
+              onClick=${(e) => { if (e && typeof e.activeTooltipIndex === 'number') setSelectedIndex(e.activeTooltipIndex); }}>
               <${CartesianGrid} strokeDasharray="3 3" stroke=${tc.grid} />
               <${XAxis} dataKey="dateLabel" tick=${{ fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${{ stroke: tc.axisLine }} tickLine=${false} />
               <${YAxis} hide=${true} ...${barYAxisProps} width=${0} />
-              <${Tooltip} formatter=${(v, name) => [GBP(v), name]} trigger="click"
-                contentStyle=${{ background: tc.tooltipBg, border: 'none', borderRadius: 8, color: '#fff' }}
-                labelStyle=${{ color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }}
-                wrapperStyle=${tooltipHidden2 ? { display: 'none' } : {}} />
               ${accounts.map(a => {
                 const isHighlighted = !hasSelection || selectedIds.includes(a.id);
                 return html`<${Bar} key=${a.id} dataKey=${a.id} name=${a.name} stackId="stack"
-                  fill=${a.color} fillOpacity=${isHighlighted ? 1 : 0.15}
+                  fill=${a.color} fillOpacity=${isHighlighted ? 1 : 0.15} cursor="pointer"
                   animationDuration=${1000} animationEasing="ease-in-out">
                   ${isHighlighted && html`<${LabelList} dataKey=${a.id} content=${renderLabel} />`}
                 <//>`;
@@ -1191,6 +1220,18 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tooltipKey, tc
 }
 
 // ── Data Table ───────────────────────────────────────────────────
+
+function pctChange(curr, prev) {
+  const p = Number(prev);
+  if (!prev || !p) return null;
+  return ((Number(curr) - p) / p) * 100;
+}
+
+function PctBadge({ pct }) {
+  if (pct == null) return null;
+  const sign = pct >= 0 ? '+' : '';
+  return html`<span class=${'cell-pct ' + (pct >= 0 ? 'positive' : 'negative')}>${sign}${pct.toFixed(1)}%</span>`;
+}
 
 function DataTable({ accounts, data, selectedIds, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
@@ -1216,13 +1257,23 @@ function DataTable({ accounts, data, selectedIds, tc }) {
               <span style=${{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: a.color, marginRight: 6 }}></span>
               ${a.name}
             </td>
-            ${data.map(d => html`<td key=${d.date}
-              style=${isHighlighted ? { fontWeight: 600, color: tc.textStat, background: tc.bgHighlight } : {}}>${d[a.id] ? Number(d[a.id]).toLocaleString('en-GB') : '0'}</td>`)}
+            ${data.map((d, i) => html`<td key=${d.date}
+              style=${isHighlighted ? { fontWeight: 600, color: tc.textStat, background: tc.bgHighlight } : {}}>
+              <div class="cell-value-wrap">
+                <span>${d[a.id] ? Number(d[a.id]).toLocaleString('en-GB') : '0'}</span>
+                <${PctBadge} pct=${i > 0 ? pctChange(d[a.id], data[i - 1][a.id]) : null} />
+              </div>
+            </td>`)}
           </tr>`;
         })}
         <tr class="total-row">
           <td style=${{ textAlign: 'left', position: 'sticky', left: 0, zIndex: 1, background: tc.bgInput, color: tc.accent }}>Total</td>
-          ${data.map(d => html`<td key=${d.date} class=${hasSelection ? 'dimmed' : ''}>${GBP(d.total)}</td>`)}
+          ${data.map((d, i) => html`<td key=${d.date} class=${hasSelection ? 'dimmed' : ''}>
+            <div class="cell-value-wrap">
+              <span>${GBP(d.total)}</span>
+              <${PctBadge} pct=${i > 0 ? pctChange(d.total, data[i - 1].total) : null} />
+            </div>
+          </td>`)}
         </tr>
       </tbody>
     </table>
