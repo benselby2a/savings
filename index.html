@@ -1166,13 +1166,11 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tc }) {
 
   const barYAxisProps = { tickFormatter: compactGBP, tick: { fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }, axisLine: false, tickLine: false, width: 50 };
 
-  const sortedAccounts = [...accounts].sort((a, b) => (Number(selected[b.id]) || 0) - (Number(selected[a.id]) || 0));
-
   return html`<div class="chart-container">
     <div class="breakdown-summary">
       <div class="breakdown-summary-date">${selected.dateLabel}</div>
       <div class="breakdown-summary-items">
-        ${sortedAccounts.map(a => {
+        ${accounts.map(a => {
           const isHighlighted = !hasSelection || selectedIds.includes(a.id);
           return html`<div key=${a.id} class=${'breakdown-summary-item' + (isHighlighted ? '' : ' dimmed')}>
             <span class="breakdown-summary-dot" style=${{ background: a.color }}></span>
@@ -1222,9 +1220,11 @@ function SavingsBarChart({ accounts, data, selectedIds, chartKey, tc }) {
 // ── Data Table ───────────────────────────────────────────────────
 
 function pctChange(curr, prev) {
+  const c = Number(curr) || 0;
+  if (c < 1000) return null;
   const p = Number(prev);
   if (!prev || !p) return null;
-  return ((Number(curr) - p) / p) * 100;
+  return ((c - p) / p) * 100;
 }
 
 function PctBadge({ pct }) {
