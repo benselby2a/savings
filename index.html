@@ -59,9 +59,6 @@
     --color-success: #44cc44;
     --color-error: #ff4444;
     --color-default-tag: #FF9800;
-    --proj-active-bg: #1a3320;
-    --proj-active-border: #44cc44;
-    --proj-active-text: #44cc44;
     --tooltip-bg: #1a1a2e;
     --tooltip-label: #aaa;
     --grid-stroke: #1e2530;
@@ -126,9 +123,6 @@
     --color-success: #4CAF50;
     --color-error: #f44336;
     --color-default-tag: #FF9800;
-    --proj-active-bg: #e8f5e9;
-    --proj-active-border: #4CAF50;
-    --proj-active-text: #2e7d32;
     --tooltip-bg: #1a1a2e;
     --tooltip-label: #aaa;
     --grid-stroke: #eee;
@@ -262,42 +256,6 @@
   .stat-change.positive { color: var(--color-positive); }
   .stat-change.negative { color: var(--color-negative); }
 
-  /* Projections */
-  .projections-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-  .projections-table th, .projections-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border-table); }
-  .projections-table th { background: var(--bg-input); font-weight: 600; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-label); }
-  .projections-table th:first-child, .projections-table td:first-child { text-align: left; }
-  .projections-table .scenario-label { font-weight: 500; color: var(--text-scenario); white-space: nowrap; }
-  .projections-table .conservative { color: #FF9800; }
-  .projections-table .expected { color: #2196F3; font-weight: 600; }
-  .projections-table .optimistic { color: #4CAF50; }
-  .projections-table .growth-rate { font-size: 0.7rem; color: var(--text-muted); font-weight: 400; }
-  .projection-toggle { padding: 4px 12px; background: var(--bg-btn); border: 1px solid var(--border-btn); border-radius: 3px; font-size: 0.75rem; font-weight: 600; color: var(--text-btn); }
-  .projection-toggle:hover { background: var(--bg-btn-hover); }
-  .projection-toggle.active { background: var(--proj-active-bg); border-color: var(--proj-active-border); color: var(--proj-active-text); }
-
-  /* Toggle switch */
-  .toggle-switch { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
-  .toggle-switch-label { font-size: 0.75rem; font-weight: 600; color: var(--text-btn); text-transform: uppercase; letter-spacing: 0.5px; }
-  .toggle-track { position: relative; width: 36px; height: 18px; background: var(--bg-toggle); border-radius: 9px; transition: background 0.2s; flex-shrink: 0; }
-  .toggle-track.active { background: var(--color-positive); }
-  .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: var(--bg-slider-thumb); border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
-  .toggle-track.active .toggle-thumb { transform: translateX(18px); }
-
-  /* Rate slider */
-  .rate-slider-container { margin-bottom: 12px; }
-  .rate-slider-labels { display: flex; justify-content: space-between; margin-bottom: 2px; }
-  .rate-slider-value { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .rate-slider-value.conservative { color: #FF9800; }
-  .rate-slider-value.expected { color: #2196F3; }
-  .rate-slider-value.optimistic { color: #4CAF50; }
-  .rate-slider-label-row { display: flex; justify-content: space-between; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; color: var(--text-muted); }
-  .rate-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: linear-gradient(to right, #FF9800, #2196F3 50%, #4CAF50); outline: none; }
-  .rate-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--bg-slider-thumb); border: 2px solid #2196F3; cursor: pointer; box-shadow: 0 0 6px rgba(33,150,243,0.4); }
-  .rate-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--bg-slider-thumb); border: 2px solid #2196F3; cursor: pointer; box-shadow: 0 0 6px rgba(33,150,243,0.4); }
-  .rate-slider-bounds { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-label); margin-top: 4px; }
-  .rate-slider-bounds span:nth-child(2) { position: relative; left: -2px; }
-
   /* Theme toggle */
   .theme-toggle { display: flex; gap: 2px; align-items: center; }
   .hub-hide { display: flex; align-items: center; gap: 10px; }
@@ -327,11 +285,6 @@
     .range-btn { padding: 4px 8px; font-size: 0.72rem; }
     .label-full { display: none; }
     .label-short { display: inline; }
-    .projection-toggle { padding: 4px 10px; font-size: 0.72rem; }
-    .toggle-switch-label { font-size: 0.72rem; }
-    .toggle-track { width: 34px; height: 18px; border-radius: 9px; }
-    .toggle-thumb { width: 14px; height: 14px; }
-    .toggle-track.active .toggle-thumb { transform: translateX(16px); }
 
     /* Cards */
     .card { padding: 12px; margin-bottom: 10px; }
@@ -357,10 +310,6 @@
     /* Account items */
     .account-item { flex-wrap: wrap; gap: 6px; padding: 6px; }
     .account-item select { width: auto; min-width: 0; flex: 1 1 100px; }
-
-    /* Projections table: scroll horizontally */
-    .projections-table { font-size: 0.75rem; }
-    .projections-table th, .projections-table td { padding: 6px 8px; }
 
     /* Tables */
     th, td { padding: 6px 8px; font-size: 0.78rem; }
@@ -417,7 +366,7 @@
 <script>
 const { createElement, useState, useEffect, useCallback, useMemo, useRef } = React;
 const { createRoot } = ReactDOM;
-const { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, Area, ComposedChart, ReferenceLine } = Recharts;
+const { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ComposedChart, ReferenceLine } = Recharts;
 const { createClient } = window.supabase;
 
 // htm - inline (tagged template JSX alternative)
@@ -968,42 +917,9 @@ function AccountLegend({ accounts, selectedIds, onSelect, tc }) {
   </div>`;
 }
 
-// ── Projection Chart Data ────────────────────────────────────────
-
-function buildProjectionData(chartData, accounts, snapshots, selectedIds, rate) {
-  const proj = calcProjections(accounts, snapshots, selectedIds, rate);
-  if (!proj || chartData.length === 0) return null;
-
-  const last = chartData[chartData.length - 1];
-  const lastDate = new Date(last.date);
-  const currentValue = proj.currentValue;
-  const recent = proj.recentGrowth;
-
-  const conservativeRate = proj.scenarios[0].rate;
-  const averageRate = proj.scenarios[1].rate;
-  const optimisticRate = proj.scenarios[2].rate;
-
-  const points = [{ date: last.date, dateLabel: last.dateLabel, proj_expected: currentValue, proj_low: currentValue, proj_high: currentValue }];
-
-  const steps = [0.25, 0.5, 1, 1.5, 2, 3, 5, 7, 10];
-  for (const years of steps) {
-    const d = new Date(lastDate);
-    d.setDate(d.getDate() + Math.round(years * 365.25));
-    const dateStr = d.toISOString().slice(0, 10);
-    points.push({
-      date: dateStr,
-      dateLabel: fmtDate(dateStr),
-      proj_expected: blendedProject(currentValue, recent, averageRate, years),
-      proj_low: blendedProject(currentValue, recent, conservativeRate, years),
-      proj_high: blendedProject(currentValue, recent, optimisticRate, years),
-    });
-  }
-  return points;
-}
-
 // ── Line Chart ───────────────────────────────────────────────────
 
-function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKey, tooltipKey, tc }) {
+function SavingsLineChart({ accounts, data, selectedIds, chartKey, tooltipKey, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
   const hasSelection = selectedIds.length > 0;
   const [tooltipHidden, setTooltipHidden] = useState(false);
@@ -1012,7 +928,7 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload) return null;
-    const sorted = [...payload].filter(p => p.value != null && p.dataKey !== 'proj_range' && p.dataKey !== 'proj_high' && p.dataKey !== 'proj_low').sort((a, b) => (b.value || 0) - (a.value || 0));
+    const sorted = [...payload].filter(p => p.value != null).sort((a, b) => (b.value || 0) - (a.value || 0));
     return html`<div style=${{ background: 'var(--tooltip-bg)', border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: '0.82rem', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
       <div style=${{ fontWeight: 600, marginBottom: 6, color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }}>${typeof label === 'number' ? fmtDate(new Date(label).toISOString().slice(0, 10)) : label}</div>
       ${sorted.map(p => html`<div key=${p.dataKey} style=${{ display: 'flex', justifyContent: 'space-between', gap: 20, padding: '2px 0' }}>
@@ -1025,24 +941,7 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
     </div>`;
   };
 
-  const mergedData = useMemo(() => {
-    const addTs = d => ({ ...d, _ts: new Date(d.date).getTime() });
-    if (!projectionData) return data.map(addTs);
-    const combined = data.map(d => ({ ...d }));
-    for (const p of projectionData) {
-      const existing = combined.find(d => d.date === p.date);
-      if (existing) {
-        existing.proj_expected = p.proj_expected;
-        existing.proj_range = [p.proj_low, p.proj_high];
-        existing.proj_high = p.proj_high;
-        existing.proj_low = p.proj_low;
-      } else {
-        combined.push({ dateLabel: p.dateLabel, date: p.date, proj_expected: p.proj_expected, proj_range: [p.proj_low, p.proj_high], proj_high: p.proj_high, proj_low: p.proj_low });
-      }
-    }
-    combined.sort((a, b) => a.date.localeCompare(b.date));
-    return combined.map(addTs);
-  }, [data, projectionData]);
+  const mergedData = useMemo(() => data.map(d => ({ ...d, _ts: new Date(d.date).getTime() })), [data]);
 
   const yDomain = useMemo(() => {
     if (!hasSelection) return [0, 'auto'];
@@ -1051,14 +950,6 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
     for (const d of mergedData) {
       for (const k of keys) {
         const v = Number(d[k]) || 0;
-        if (v > max) max = v;
-      }
-      if (d.proj_expected != null) {
-        const v = Number(d.proj_expected) || 0;
-        if (v > max) max = v;
-      }
-      if (d.proj_high != null) {
-        const v = Number(d.proj_high) || 0;
         if (v > max) max = v;
       }
     }
@@ -1097,7 +988,6 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
               <${YAxis} hide=${true} ...${yAxisProps} width=${0} />
               <${Tooltip} content=${html`<${CustomTooltip} />`} trigger="click"
                 wrapperStyle=${tooltipHidden ? { display: 'none' } : {}} />
-              ${projectionData && html`<${Area} type="monotone" dataKey="proj_range" stroke="none" fill="#2196F3" fillOpacity=${0.12} name="Projection range" dot=${false} activeDot=${false} connectNulls=${true} animationDuration=${1000} animationEasing="ease-in-out" />`}
               ${accounts.map(a => {
                 const isSelected = selectedIds.includes(a.id);
                 const isHighlighted = !hasSelection || isSelected;
@@ -1114,10 +1004,6 @@ function SavingsLineChart({ accounts, data, selectedIds, projectionData, chartKe
                 strokeDasharray=${!hasSelection ? '' : '4 4'}
                 dot=${!hasSelection ? { r: 4, fill: tc.totalLine, strokeWidth: 0 } : false} connectNulls=${false}
                 animationDuration=${1000} animationEasing="ease-in-out" />
-              ${projectionData && html`<${Line} type="monotone" dataKey="proj_expected" name="Projected"
-                stroke="#2196F3" strokeWidth=${2.5} strokeDasharray="8 5" dot=${false}
-                activeDot=${{ r: 5, fill: '#2196F3' }} connectNulls=${true}
-                animationDuration=${1000} animationEasing="ease-in-out" />`}
             <//>
           <//>
         </div>
@@ -1288,133 +1174,6 @@ function DataTable({ accounts, data, selectedIds, tc }) {
   </div>`;
 }
 
-// ── Projections ──────────────────────────────────────────────────
-
-const PROJECTION_HORIZONS = [
-  { label: '+3 months', years: 0.25 },
-  { label: '+1 year', years: 1 },
-  { label: '+2 years', years: 2 },
-  { label: '+5 years', years: 5 },
-  { label: '+10 years', years: 10 },
-];
-
-const DEFAULT_PROJECTION_RATE = 4;
-const PROJECTION_SPREAD = 2;
-
-const BLEND_YEARS = 2; // years over which recent growth blends into selected rate
-
-function calcRecentGrowth(snapshots, accountIds) {
-  const dates = [...new Set(snapshots.map(s => s.date))].sort();
-  if (dates.length < 2) return null;
-  const latestDate = dates[dates.length - 1];
-  const oneYearAgo = new Date(new Date(latestDate).getTime() - 365.25 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  // Find the closest date to one year ago
-  let bestDate = dates[0];
-  for (const d of dates) {
-    if (d <= oneYearAgo) bestDate = d;
-  }
-  if (bestDate === latestDate) bestDate = dates[Math.max(0, dates.length - 2)];
-
-  const getTotal = (date) => {
-    let sum = 0;
-    for (const id of accountIds) {
-      const snap = snapshots.find(s => s.date === date && s.account_id === id);
-      if (snap) sum += Number(snap.amount);
-    }
-    return sum;
-  };
-
-  const oldVal = getTotal(bestDate);
-  const newVal = getTotal(latestDate);
-  if (oldVal <= 0) return null;
-  const elapsedYears = (new Date(latestDate) - new Date(bestDate)) / (365.25 * 24 * 60 * 60 * 1000);
-  if (elapsedYears < 0.05) return null;
-  return Math.pow(newVal / oldVal, 1 / elapsedYears) - 1;
-}
-
-function blendedProject(currentValue, recentRate, targetRate, years) {
-  // Compound in small steps, blending from recentRate to targetRate over BLEND_YEARS
-  const stepSize = 0.05; // ~18 day steps for precision
-  let value = currentValue;
-  for (let t = 0; t < years; t += stepSize) {
-    const dt = Math.min(stepSize, years - t);
-    const blend = Math.min(t / BLEND_YEARS, 1);
-    const rate = recentRate * (1 - blend) + targetRate * blend;
-    value *= Math.pow(1 + rate, dt);
-  }
-  return value;
-}
-
-function calcProjections(accounts, snapshots, selectedIds, rate) {
-  const accountIds = selectedIds.length > 0 ? selectedIds : accounts.map(a => a.id);
-  const dates = [...new Set(snapshots.map(s => s.date))].sort();
-  if (dates.length < 1) return null;
-
-  const getTotal = (date) => {
-    let sum = 0;
-    for (const id of accountIds) {
-      const snap = snapshots.find(s => s.date === date && s.account_id === id);
-      if (snap) sum += Number(snap.amount);
-    }
-    return sum;
-  };
-
-  const latestDate = dates[dates.length - 1];
-  const currentValue = getTotal(latestDate);
-  if (currentValue <= 0) return null;
-
-  const recentGrowth = calcRecentGrowth(snapshots, accountIds);
-  const averageRate = (rate || 0) / 100;
-  const conservativeRate = averageRate - PROJECTION_SPREAD / 100;
-  const optimisticRate = averageRate + PROJECTION_SPREAD / 100;
-
-  const recent = recentGrowth != null ? recentGrowth : averageRate;
-
-  const project = (targetRate, years) => blendedProject(currentValue, recent, targetRate, years);
-
-  return {
-    currentValue,
-    latestDate: fmtDate(latestDate),
-    recentGrowth: recent,
-    scenarios: [
-      { name: 'Conservative', rate: conservativeRate, cls: 'conservative',
-        values: PROJECTION_HORIZONS.map(h => project(conservativeRate, h.years)) },
-      { name: 'Average', rate: averageRate, cls: 'expected',
-        values: PROJECTION_HORIZONS.map(h => project(averageRate, h.years)) },
-      { name: 'Optimistic', rate: optimisticRate, cls: 'optimistic',
-        values: PROJECTION_HORIZONS.map(h => project(optimisticRate, h.years)) },
-    ]
-  };
-}
-
-function ProjectionsCard({ accounts, snapshots, selectedIds, rate, onRateChange }) {
-  const projections = useMemo(() => calcProjections(accounts, snapshots, selectedIds, rate), [accounts, snapshots, selectedIds, rate]);
-
-  if (!projections) return html`<div class="card"><h2>Projections</h2><div class="empty-state">Not enough data to project.</div></div>`;
-
-  const selectedAccts = accounts.filter(a => selectedIds.includes(a.id));
-  const label = selectedAccts.length > 0 ? selectedAccts.map(a => a.name).join(', ') : 'Total';
-
-  const lowRate = rate - PROJECTION_SPREAD;
-  const highRate = rate + PROJECTION_SPREAD;
-
-  return html`<div class="card" style=${{ padding: '12px 16px' }}>
-    <div style=${{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-      <div style=${{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-        <strong style=${{ color: 'var(--text-heading)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Projection</strong>
-        <span>Recent: <strong style=${{ color: 'var(--text-stat)' }}>${(projections.recentGrowth * 100).toFixed(1)}%</strong></span>
-      </div>
-      <div style=${{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style=${{ fontSize: '0.75rem', fontWeight: 700, color: '#FF9800', whiteSpace: 'nowrap' }}>${lowRate.toFixed(1)}%</span>
-        <input type="range" class="rate-slider" min="-20" max="20" step="0.5" value=${rate}
-          onInput=${e => onRateChange(parseFloat(e.target.value))} style=${{ flex: 1 }} />
-        <span style=${{ fontSize: '0.75rem', fontWeight: 700, color: '#4CAF50', whiteSpace: 'nowrap' }}>${highRate.toFixed(1)}%</span>
-      </div>
-      <span style=${{ fontSize: '0.9rem', fontWeight: 700, color: '#2196F3', whiteSpace: 'nowrap' }}>${rate.toFixed(1)}% p.a.</span>
-    </div>
-  </div>`;
-}
-
 // ── Dashboard ────────────────────────────────────────────────────
 
 function Dashboard({ supabase, userId, userEmail, onLogout }) {
@@ -1426,8 +1185,6 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
   const [categoryFilter, setCategoryFilter] = useState('ALL_EXC_PP');
   const [timeRange, setTimeRange] = useState('ALL');
   const [selectedAccounts, setSelectedAccounts] = useState([]);
-  const [showProjections, setShowProjections] = useState(false);
-  const [projectionRate, setProjectionRate] = useState(DEFAULT_PROJECTION_RATE);
   const [tooltipBump, setTooltipBump] = useState(0);
   const chartAreaRef = useRef(null);
   const prevFiltersRef = useRef('');
@@ -1462,7 +1219,7 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
     };
   }, [theme]);
 
-  const filterSig = `${ownerFilter}-${categoryFilter}-${timeRange}-${selectedAccounts.join(',')}-${showProjections}`;
+  const filterSig = `${ownerFilter}-${categoryFilter}-${timeRange}-${selectedAccounts.join(',')}`;
   useEffect(() => {
     if (prevFiltersRef.current && prevFiltersRef.current !== filterSig) {
       setChartKey(k => k + 1);
@@ -1570,14 +1327,6 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
               onClick=${() => setOwnerFilter(o)}>${o}</button>`)}
           </div>
           <div class="control-group">
-            <div class="toggle-switch" onClick=${() => setShowProjections(!showProjections)}>
-              <span class="toggle-switch-label">Projections</span>
-              <div class=${'toggle-track' + (showProjections ? ' active' : '')}>
-                <div class="toggle-thumb"></div>
-              </div>
-            </div>
-          </div>
-          <div class="control-group">
             <span class="control-group-label">Category</span>
             ${CATEGORY_FILTERS.map(c => html`<button key=${c.id}
               class=${'range-btn' + (categoryFilter === c.id ? ' active' : '')}
@@ -1605,14 +1354,11 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
         </div>
       </div>`}
 
-      ${showProjections && html`<${ProjectionsCard} accounts=${filteredAccounts} snapshots=${snapshots} selectedIds=${selectedAccounts} rate=${projectionRate} onRateChange=${setProjectionRate} />`}
-
       <div ref=${chartAreaRef}>
         <div class="chart-card">
           <div class="chart-card-header"><h2>Savings Over Time</h2></div>
           <div class="chart-card-body">
             <${SavingsLineChart} accounts=${filteredAccounts} data=${chartData} selectedIds=${selectedAccounts}
-              projectionData=${showProjections ? buildProjectionData(chartData, filteredAccounts, snapshots, selectedAccounts, projectionRate) : null}
               chartKey=${chartKey} tooltipKey=${tooltipBump} tc=${tc} />
           </div>
         </div>
