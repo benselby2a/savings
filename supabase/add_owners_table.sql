@@ -17,7 +17,3 @@ CREATE POLICY "Authenticated users can insert owners"
   ON savings.owners FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated users can delete owners"
   ON savings.owners FOR DELETE USING (auth.role() = 'authenticated');
-
-
-
-
