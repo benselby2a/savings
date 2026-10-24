@@ -41,12 +41,14 @@ create index if not exists idx_snapshots_date on savings.snapshots(date);
 alter table savings.accounts enable row level security;
 alter table savings.snapshots enable row level security;
 
--- RLS policies: any authenticated user can read/write all data
+-- RLS policies: any authenticated user can read/write all data;
+-- insert is additionally pinned to the inserting user's own id so
+-- user_id can't be forged to claim another member's identity.
 create policy "Authenticated users can view accounts"
   on savings.accounts for select using (auth.role() = 'authenticated');
 
 create policy "Authenticated users can insert accounts"
-  on savings.accounts for insert with check (auth.role() = 'authenticated');
+  on savings.accounts for insert with check (auth.role() = 'authenticated' and user_id = auth.uid());
 
 create policy "Authenticated users can update accounts"
   on savings.accounts for update using (auth.role() = 'authenticated');
@@ -58,7 +60,7 @@ create policy "Authenticated users can view snapshots"
   on savings.snapshots for select using (auth.role() = 'authenticated');
 
 create policy "Authenticated users can insert snapshots"
-  on savings.snapshots for insert with check (auth.role() = 'authenticated');
+  on savings.snapshots for insert with check (auth.role() = 'authenticated' and user_id = auth.uid());
 
 create policy "Authenticated users can update snapshots"
   on savings.snapshots for update using (auth.role() = 'authenticated');
