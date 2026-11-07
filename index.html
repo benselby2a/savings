@@ -369,7 +369,7 @@
 <script>
 const { createElement, useState, useEffect, useCallback, useMemo, useRef } = React;
 const { createRoot } = ReactDOM;
-const { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ComposedChart, ReferenceLine } = Recharts;
+const { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ComposedChart, ReferenceLine, ReferenceArea } = Recharts;
 const { createClient } = window.supabase;
 
 // htm - inline (tagged template JSX alternative)
@@ -599,7 +599,7 @@ function normalizeIncomes(rawIncomes, rawYears) {
 }
 
 function useDrawdownAssumptions(supabase) {
-  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, horizon_years: 20, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
+  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, horizon_years: 20, year_of_birth: 1989, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
   const [assumptions, setAssumptions] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
@@ -616,6 +616,7 @@ function useDrawdownAssumptions(supabase) {
           monthly_essentials: essentials === 0 && discretionary === 0 && legacySpend > 0 ? legacySpend : essentials,
           monthly_discretionary: discretionary,
           horizon_years: Number(data.horizon_years),
+          year_of_birth: data.year_of_birth != null ? Number(data.year_of_birth) : DEFAULTS.year_of_birth,
           included_categories: data.included_categories && data.included_categories.length > 0 ? data.included_categories : DEFAULTS.included_categories,
         });
       }
@@ -1185,18 +1186,27 @@ function DataTable({ accounts, data, selectedIds, tc }) {
 // ── Draw Down Modeller ───────────────────────────────────────────
 
 // incomeEntries: [{ annual, startMonth, endMonth }], endMonth null = indefinite.
+// categoryBalances: optional { [category]: balance at the junction date }, used to
+// project each category forward in proportion to its current share of the total
+// each month, so the category lines always sum back to the total/projected line.
 // Simulates past the chosen horizon (up to a 70y hard cap) when needed to reach
 // the point the balance actually depletes, so that point is always visible.
-function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears) {
+function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears, categoryBalances) {
   const monthlyRate = growthRatePct / 100 / 12;
   const rows = history.map(h => ({ date: h.date, _ts: new Date(h.date).getTime(), actual: h.total, projected: null }));
 
   const lastDate = history.length ? new Date(history[history.length - 1].date) : new Date();
   let balance = history.length ? history[history.length - 1].total : 0;
+  const catKeys = categoryBalances ? Object.keys(categoryBalances) : [];
+  let catBalances = { ...categoryBalances };
+
   if (rows.length) {
     rows[rows.length - 1].projected = balance;
+    for (const k of catKeys) rows[rows.length - 1][k + '__proj'] = catBalances[k];
   } else {
-    rows.push({ date: lastDate.toISOString().slice(0, 10), _ts: lastDate.getTime(), actual: null, projected: balance });
+    const junctionRow = { date: lastDate.toISOString().slice(0, 10), _ts: lastDate.getTime(), actual: null, projected: balance };
+    for (const k of catKeys) junctionRow[k + '__proj'] = catBalances[k];
+    rows.push(junctionRow);
   }
 
   const MAX_YEARS = 70;
@@ -1215,9 +1225,25 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
     for (const inc of incomeEntries) {
       if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) monthlyIncome += inc.annual / 12;
     }
-    balance = Math.max(0, balance * (1 + monthlyRate) + monthlyIncome - monthlySpend);
+    const prevTotal = balance;
+    const flow = monthlyIncome - monthlySpend;
+    balance = Math.max(0, balance * (1 + monthlyRate) + flow);
+
+    const row = { date: null, _ts: null, actual: null, projected: balance };
+    if (catKeys.length) {
+      const nextCatBalances = {};
+      for (const k of catKeys) {
+        const share = prevTotal > 0 ? catBalances[k] / prevTotal : 1 / catKeys.length;
+        nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRate) + flow * share);
+        row[k + '__proj'] = nextCatBalances[k];
+      }
+      catBalances = nextCatBalances;
+    }
+
     const d = new Date(lastDate.getFullYear(), lastDate.getMonth() + m, lastDate.getDate());
-    projected.push({ date: d.toISOString().slice(0, 10), _ts: d.getTime(), actual: null, projected: balance });
+    row.date = d.toISOString().slice(0, 10);
+    row._ts = d.getTime();
+    projected.push(row);
 
     if (m === minMonths) horizonBalance = balance;
     if (depletionMonth == null && balance <= 0) {
@@ -1249,12 +1275,34 @@ function DrawdownTooltip({ active, payload, label }) {
   </div>`;
 }
 
-function DrawdownChart({ data, categories, tc }) {
+const AGE_BANDS = [
+  { toAge: 60, color: '#4CAF50' },
+  { toAge: 75, color: '#FFC107' },
+  { toAge: 100, color: '#FF9800' },
+];
+
+function DrawdownChart({ data, categories, yearOfBirth, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
+
+  let ageBands = [];
+  if (yearOfBirth) {
+    const chartStart = data[0]._ts;
+    const chartEnd = data[data.length - 1]._ts;
+    let fromAge = 0;
+    ageBands = AGE_BANDS.map(band => {
+      const x1 = Math.max(chartStart, new Date(yearOfBirth + fromAge, 0, 1).getTime());
+      const x2 = Math.min(chartEnd, new Date(yearOfBirth + band.toAge, 0, 1).getTime());
+      fromAge = band.toAge;
+      return { ...band, x1, x2 };
+    }).filter(band => band.x2 > band.x1);
+  }
+
   return html`<div class="chart-container">
     <${ResponsiveContainer} width="100%" height=${400}>
       <${ComposedChart} data=${data} margin=${{ top: 5, right: 20, left: 0, bottom: 5 }}>
         <${CartesianGrid} strokeDasharray="3 3" stroke=${tc.grid} />
+        ${ageBands.map(band => html`<${ReferenceArea} key=${band.toAge} x1=${band.x1} x2=${band.x2}
+          fill=${band.color} fillOpacity=${0.08} ifOverflow="hidden" />`)}
         <${XAxis} dataKey="_ts" type="number" scale="time" domain=${['dataMin', 'dataMax']}
           tickFormatter=${ts => fmtDate(new Date(ts).toISOString().slice(0, 10))}
           tick=${{ fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${{ stroke: tc.axisLine }} tickLine=${false}
@@ -1262,9 +1310,14 @@ function DrawdownChart({ data, categories, tc }) {
         <${YAxis} tickFormatter=${compactGBP} tick=${{ fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${false} tickLine=${false} width=${50} />
         <${Tooltip} content=${html`<${DrawdownTooltip} />`} />
         <${ReferenceLine} y=${0} stroke=${tc.axisLine} strokeDasharray="3 3" />
-        ${(categories || []).map(cat => html`<${Line} key=${cat} type="monotone" dataKey=${cat} name=${cat}
-          stroke=${CATEGORY_COLORS[cat] || tc.axisTick} strokeWidth=${1.25} strokeOpacity=${0.4}
-          dot=${false} connectNulls=${false} isAnimationActive=${false} />`)}
+        ${(categories || []).flatMap(cat => [
+          html`<${Line} key=${cat} type="monotone" dataKey=${cat} name=${cat}
+            stroke=${CATEGORY_COLORS[cat] || tc.axisTick} strokeWidth=${1.25} strokeOpacity=${0.4}
+            dot=${false} connectNulls=${false} isAnimationActive=${false} />`,
+          html`<${Line} key=${cat + '__proj'} type="monotone" dataKey=${cat + '__proj'} name=${cat}
+            stroke=${CATEGORY_COLORS[cat] || tc.axisTick} strokeWidth=${1.25} strokeOpacity=${0.4} strokeDasharray="6 4"
+            dot=${false} connectNulls=${true} isAnimationActive=${false} />`,
+        ])}
         <${Line} type="monotone" dataKey="actual" name="Actual" stroke=${tc.totalLine} strokeWidth=${2.5}
           dot=${false} connectNulls=${false} isAnimationActive=${false} />
         <${Line} type="monotone" dataKey="projected" name="Projected" stroke=${tc.accent} strokeWidth=${2.5}
@@ -1284,7 +1337,9 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const [monthlyEssentials, setMonthlyEssentials] = useState(assumptions.monthly_essentials);
   const [monthlyDiscretionary, setMonthlyDiscretionary] = useState(assumptions.monthly_discretionary);
   const [horizonYears, setHorizonYears] = useState(assumptions.horizon_years);
+  const [yearOfBirth, setYearOfBirth] = useState(assumptions.year_of_birth);
   const [includedCategories, setIncludedCategories] = useState(assumptions.included_categories);
+  const [showBreakdown, setShowBreakdown] = useState(true);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -1293,6 +1348,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     setMonthlyEssentials(assumptions.monthly_essentials);
     setMonthlyDiscretionary(assumptions.monthly_discretionary);
     setHorizonYears(assumptions.horizon_years);
+    setYearOfBirth(assumptions.year_of_birth);
     setIncludedCategories(assumptions.included_categories);
   }, [assumptions]);
 
@@ -1303,6 +1359,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       monthly_essentials: Number(monthlyEssentials) || 0,
       monthly_discretionary: Number(monthlyDiscretionary) || 0,
       horizon_years: Math.max(1, Number(horizonYears) || 1),
+      year_of_birth: Number(yearOfBirth) || 1989,
       included_categories: includedCategories,
       ...patch,
     });
@@ -1346,12 +1403,9 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
   const totalMonthlySpend = (Number(monthlyEssentials) || 0) + (Number(monthlyDiscretionary) || 0);
 
-  const { rows: series, horizonBalance, depletionDate } = useMemo(() =>
-    buildDrawdownSeries(history, incomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1)),
-    [history, incomeEntries, totalMonthlySpend, growthRate, horizonYears]);
-
-  // Per-category breakdown lines (actual history only — growth/spend are only
-  // modeled for the combined total, so these don't extend into the projection).
+  // Per-category history (actual) plus each category's balance at the starting
+  // point, used to project the categories forward in proportion to their share
+  // of the total so they always sum back to the combined projected line.
   const categoryHistories = useMemo(() => {
     const result = {};
     for (const cat of includedCategories) {
@@ -1363,6 +1417,19 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   }, [filteredAccounts, snapshots, includedCategories]);
 
   const chartCategories = useMemo(() => Object.keys(categoryHistories), [categoryHistories]);
+
+  const categoryStartBalances = useMemo(() => {
+    const result = {};
+    for (const cat of chartCategories) {
+      const rows = categoryHistories[cat];
+      result[cat] = rows.length ? rows[rows.length - 1].total : 0;
+    }
+    return result;
+  }, [categoryHistories, chartCategories]);
+
+  const { rows: series, horizonBalance, depletionDate } = useMemo(() =>
+    buildDrawdownSeries(history, incomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1), categoryStartBalances),
+    [history, incomeEntries, totalMonthlySpend, growthRate, horizonYears, categoryStartBalances]);
 
   const chartSeries = useMemo(() => {
     const byDate = {};
@@ -1459,6 +1526,12 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
             onInput=${e => setHorizonYears(e.target.value)}
             onBlur=${() => persist({})} style=${{ width: 100 }} />
         </div>
+        <div class="form-group">
+          <label>Year of birth</label>
+          <input type="number" inputmode="numeric" step="1" min="1900" max="2100" value=${yearOfBirth}
+            onInput=${e => setYearOfBirth(e.target.value)}
+            onBlur=${() => persist({})} style=${{ width: 100 }} />
+        </div>
       </div>
       <div class="form-group" style=${{ marginTop: 8 }}>
         <label>Savings types included</label>
@@ -1490,9 +1563,15 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     </div>`}
 
     <div class="chart-card">
-      <div class="chart-card-header"><h2>Draw Down Projection</h2></div>
+      <div class="chart-card-header">
+        <h2>Draw Down Projection</h2>
+        ${chartCategories.length > 1 && html`<button class="btn-secondary btn-sm" onClick=${() => setShowBreakdown(s => !s)}>
+          ${showBreakdown ? 'Hide breakdown' : 'Show breakdown'}
+        </button>`}
+      </div>
       <div class="chart-card-body">
-        <${DrawdownChart} data=${chartSeries} categories=${chartCategories.length > 1 ? chartCategories : []} tc=${tc} />
+        <${DrawdownChart} data=${chartSeries} categories=${chartCategories.length > 1 && showBreakdown ? chartCategories : []}
+          yearOfBirth=${Number(yearOfBirth) || null} tc=${tc} />
       </div>
     </div>
   </div>`;
