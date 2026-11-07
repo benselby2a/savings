@@ -574,7 +574,7 @@ function useOwners(supabase) {
 }
 
 function useDrawdownAssumptions(supabase) {
-  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_spend: 0, horizon_years: 20 };
+  const DEFAULTS = { incomes: {}, income_years: {}, growth_rate: 4, monthly_spend: 0, horizon_years: 20, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
   const [assumptions, setAssumptions] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
@@ -584,9 +584,11 @@ function useDrawdownAssumptions(supabase) {
       if (data) {
         setAssumptions({
           incomes: data.incomes || {},
+          income_years: data.income_years || {},
           growth_rate: Number(data.growth_rate),
           monthly_spend: Number(data.monthly_spend),
           horizon_years: Number(data.horizon_years),
+          included_categories: data.included_categories && data.included_categories.length > 0 ? data.included_categories : DEFAULTS.included_categories,
         });
       }
       setLoading(false);
@@ -1154,7 +1156,7 @@ function DataTable({ accounts, data, selectedIds, tc }) {
 
 // ── Draw Down Modeller ───────────────────────────────────────────
 
-function buildDrawdownSeries(history, monthlyIncome, monthlySpend, growthRatePct, horizonYears) {
+function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears) {
   const monthlyRate = growthRatePct / 100 / 12;
   const rows = history.map(h => ({ date: h.date, _ts: new Date(h.date).getTime(), actual: h.total, projected: null }));
 
@@ -1168,6 +1170,10 @@ function buildDrawdownSeries(history, monthlyIncome, monthlySpend, growthRatePct
 
   const months = Math.round(horizonYears * 12);
   for (let m = 1; m <= months; m++) {
+    let monthlyIncome = 0;
+    for (const inc of incomeEntries) {
+      if (inc.years == null || m <= inc.years * 12) monthlyIncome += inc.annual / 12;
+    }
     balance = balance * (1 + monthlyRate) + monthlyIncome - monthlySpend;
     const d = new Date(lastDate.getFullYear(), lastDate.getMonth() + m, lastDate.getDate());
     rows.push({ date: d.toISOString().slice(0, 10), _ts: d.getTime(), actual: null, projected: balance });
@@ -1214,42 +1220,60 @@ function DrawdownChart({ data, tc }) {
 }
 
 function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave, tc }) {
+  const incomeOwners = useMemo(() => ownerNames.filter(o => o !== 'Joint'), [ownerNames]);
+
   const [incomes, setIncomes] = useState(assumptions.incomes);
+  const [incomeYears, setIncomeYears] = useState(assumptions.income_years);
   const [growthRate, setGrowthRate] = useState(assumptions.growth_rate);
   const [monthlySpend, setMonthlySpend] = useState(assumptions.monthly_spend);
   const [horizonYears, setHorizonYears] = useState(assumptions.horizon_years);
-  const [saving, setSaving] = useState(false);
+  const [includedCategories, setIncludedCategories] = useState(assumptions.included_categories);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     setIncomes(assumptions.incomes);
+    setIncomeYears(assumptions.income_years);
     setGrowthRate(assumptions.growth_rate);
     setMonthlySpend(assumptions.monthly_spend);
     setHorizonYears(assumptions.horizon_years);
+    setIncludedCategories(assumptions.included_categories);
   }, [assumptions]);
 
-  const handleSave = async () => {
-    setSaving(true);
+  const persist = async (patch) => {
     await onSave({
       incomes,
+      income_years: incomeYears,
       growth_rate: Number(growthRate) || 0,
       monthly_spend: Number(monthlySpend) || 0,
       horizon_years: Math.max(1, Number(horizonYears) || 1),
+      included_categories: includedCategories,
+      ...patch,
     });
-    setSaving(false);
-    setMessage('Saved!');
-    setTimeout(() => setMessage(''), 2000);
+    setMessage('Saved');
+    setTimeout(() => setMessage(''), 1500);
   };
 
-  const history = useMemo(() => buildChartData(accounts, snapshots, null), [accounts, snapshots]);
+  const toggleCategory = (c) => {
+    const next = includedCategories.includes(c)
+      ? (includedCategories.length > 1 ? includedCategories.filter(x => x !== c) : includedCategories)
+      : [...includedCategories, c];
+    setIncludedCategories(next);
+    persist({ included_categories: next });
+  };
 
-  const monthlyIncome = useMemo(() =>
-    ownerNames.reduce((sum, o) => sum + (Number(incomes[o]) || 0), 0) / 12,
-    [incomes, ownerNames]);
+  const filteredAccounts = useMemo(() =>
+    accounts.filter(a => includedCategories.includes(a.category || 'Cash')),
+    [accounts, includedCategories]);
+
+  const history = useMemo(() => buildChartData(filteredAccounts, snapshots, null), [filteredAccounts, snapshots]);
+
+  const incomeEntries = useMemo(() =>
+    incomeOwners.map(o => ({ annual: Number(incomes[o]) || 0, years: incomeYears[o] ? Number(incomeYears[o]) : null })),
+    [incomes, incomeYears, incomeOwners]);
 
   const series = useMemo(() =>
-    buildDrawdownSeries(history, monthlyIncome, Number(monthlySpend) || 0, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1)),
-    [history, monthlyIncome, monthlySpend, growthRate, horizonYears]);
+    buildDrawdownSeries(history, incomeEntries, Number(monthlySpend) || 0, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1)),
+    [history, incomeEntries, monthlySpend, growthRate, horizonYears]);
 
   const startingBalance = history.length ? history[history.length - 1].total : 0;
   const horizonBalance = series.length ? series[series.length - 1].projected : startingBalance;
@@ -1257,33 +1281,53 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
   return html`<div>
     <div class="card">
-      <h2>Assumptions</h2>
+      <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2>Assumptions</h2>
+        ${message && html`<span class="success">${message}</span>`}
+      </div>
       <div class="form-row" style=${{ flexWrap: 'wrap' }}>
-        ${ownerNames.map(o => html`<div class="form-group" key=${o}>
-          <label>Annual income — ${o}</label>
-          <input type="number" inputmode="decimal" min="0" step="100" placeholder="0"
-            value=${incomes[o] ?? ''}
-            onInput=${e => setIncomes({ ...incomes, [o]: e.target.value })} style=${{ width: 140 }} />
-        </div>`)}
+        ${incomeOwners.flatMap(o => [
+          html`<div class="form-group" key=${o + '-income'}>
+            <label>Annual income — ${o}</label>
+            <input type="number" inputmode="decimal" min="0" step="100" placeholder="0"
+              value=${incomes[o] ?? ''}
+              onInput=${e => setIncomes({ ...incomes, [o]: e.target.value })}
+              onBlur=${() => persist({})} style=${{ width: 140 }} />
+          </div>`,
+          html`<div class="form-group" key=${o + '-years'}>
+            <label>Valid for (yrs) — ${o}</label>
+            <input type="number" inputmode="numeric" min="0" step="1" placeholder="Indefinite"
+              value=${incomeYears[o] ?? ''}
+              onInput=${e => setIncomeYears({ ...incomeYears, [o]: e.target.value })}
+              onBlur=${() => persist({})} style=${{ width: 120 }} />
+          </div>`,
+        ])}
         <div class="form-group">
           <label>Annual growth rate (%)</label>
           <input type="number" inputmode="decimal" step="0.1" value=${growthRate}
-            onInput=${e => setGrowthRate(e.target.value)} style=${{ width: 100 }} />
+            onInput=${e => setGrowthRate(e.target.value)}
+            onBlur=${() => persist({})} style=${{ width: 100 }} />
         </div>
         <div class="form-group">
           <label>Monthly spend (£)</label>
           <input type="number" inputmode="decimal" step="10" min="0" value=${monthlySpend}
-            onInput=${e => setMonthlySpend(e.target.value)} style=${{ width: 120 }} />
+            onInput=${e => setMonthlySpend(e.target.value)}
+            onBlur=${() => persist({})} style=${{ width: 120 }} />
         </div>
         <div class="form-group">
           <label>Horizon (years)</label>
           <input type="number" inputmode="numeric" step="1" min="1" max="60" value=${horizonYears}
-            onInput=${e => setHorizonYears(e.target.value)} style=${{ width: 100 }} />
+            onInput=${e => setHorizonYears(e.target.value)}
+            onBlur=${() => persist({})} style=${{ width: 100 }} />
         </div>
       </div>
-      <div style=${{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button class="btn-primary" onClick=${handleSave} disabled=${saving}>${saving ? 'Saving...' : 'Save Assumptions'}</button>
-        ${message && html`<span class="success">${message}</span>`}
+      <div class="form-group" style=${{ marginTop: 8 }}>
+        <label>Savings types included</label>
+        <div style=${{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          ${CATEGORIES.map(c => html`<button key=${c} type="button"
+            class=${'range-btn' + (includedCategories.includes(c) ? ' active' : '')}
+            onClick=${() => toggleCategory(c)}>${c}</button>`)}
+        </div>
       </div>
     </div>
 
