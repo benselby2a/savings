@@ -415,6 +415,13 @@ const PALETTE = [
 function accountColor(index) { return PALETTE[index % PALETTE.length]; }
 const CATEGORIES = ['Cash', 'Available Assets', 'Restricted Assets', 'Properties', 'Pensions'];
 const PP_CATEGORIES = ['Properties', 'Pensions'];
+const CATEGORY_COLORS = {
+  'Cash': '#2196F3',
+  'Available Assets': '#4CAF50',
+  'Restricted Assets': '#9C27B0',
+  'Properties': '#FF9800',
+  'Pensions': '#009688',
+};
 const CATEGORY_FILTERS = [
   { id: 'ALL', label: 'All', short: 'All' },
   { id: 'ALL_EXC_PP', label: 'All Exc P&P', short: 'Exc P&P', tooltip: 'All excluding properties and pensions' },
@@ -580,16 +587,19 @@ function normalizeIncomes(rawIncomes, rawYears) {
   const result = {};
   for (const [name, val] of Object.entries(rawIncomes || {})) {
     if (val && typeof val === 'object') {
-      result[name] = { job1: val.job1 ?? '', job1Years: val.job1Years ?? '', job2: val.job2 ?? '', job2Years: val.job2Years ?? '' };
+      result[name] = {
+        job1: val.job1 ?? '', job1Years: val.job1Years ?? '', job1Tax: val.job1Tax ?? '',
+        job2: val.job2 ?? '', job2Years: val.job2Years ?? '', job2Tax: val.job2Tax ?? '',
+      };
     } else {
-      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job2: '', job2Years: '' };
+      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job1Tax: '', job2: '', job2Years: '', job2Tax: '' };
     }
   }
   return result;
 }
 
 function useDrawdownAssumptions(supabase) {
-  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_spend: 0, horizon_years: 20, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
+  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, horizon_years: 20, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
   const [assumptions, setAssumptions] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
@@ -597,10 +607,14 @@ function useDrawdownAssumptions(supabase) {
     (async () => {
       const { data } = await supabase.from('drawdown_assumptions').select('*').eq('id', 'default').maybeSingle();
       if (data) {
+        const essentials = Number(data.monthly_essentials) || 0;
+        const discretionary = Number(data.monthly_discretionary) || 0;
+        const legacySpend = Number(data.monthly_spend) || 0;
         setAssumptions({
           incomes: normalizeIncomes(data.incomes, data.income_years),
           growth_rate: Number(data.growth_rate),
-          monthly_spend: Number(data.monthly_spend),
+          monthly_essentials: essentials === 0 && discretionary === 0 && legacySpend > 0 ? legacySpend : essentials,
+          monthly_discretionary: discretionary,
           horizon_years: Number(data.horizon_years),
           included_categories: data.included_categories && data.included_categories.length > 0 ? data.included_categories : DEFAULTS.included_categories,
         });
@@ -1221,7 +1235,7 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
 
 function DrawdownTooltip({ active, payload, label }) {
   if (!active || !payload) return null;
-  const sorted = payload.filter(p => p.value != null);
+  const sorted = [...payload].filter(p => p.value != null).sort((a, b) => (b.value || 0) - (a.value || 0));
   if (sorted.length === 0) return null;
   return html`<div style=${{ background: 'var(--tooltip-bg)', border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: '0.82rem', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
     <div style=${{ fontWeight: 600, marginBottom: 6, color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }}>${fmtDate(new Date(label).toISOString().slice(0, 10))}</div>
@@ -1235,7 +1249,7 @@ function DrawdownTooltip({ active, payload, label }) {
   </div>`;
 }
 
-function DrawdownChart({ data, tc }) {
+function DrawdownChart({ data, categories, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
   return html`<div class="chart-container">
     <${ResponsiveContainer} width="100%" height=${400}>
@@ -1248,6 +1262,9 @@ function DrawdownChart({ data, tc }) {
         <${YAxis} tickFormatter=${compactGBP} tick=${{ fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${false} tickLine=${false} width=${50} />
         <${Tooltip} content=${html`<${DrawdownTooltip} />`} />
         <${ReferenceLine} y=${0} stroke=${tc.axisLine} strokeDasharray="3 3" />
+        ${(categories || []).map(cat => html`<${Line} key=${cat} type="monotone" dataKey=${cat} name=${cat}
+          stroke=${CATEGORY_COLORS[cat] || tc.axisTick} strokeWidth=${1.25} strokeOpacity=${0.4}
+          dot=${false} connectNulls=${false} isAnimationActive=${false} />`)}
         <${Line} type="monotone" dataKey="actual" name="Actual" stroke=${tc.totalLine} strokeWidth=${2.5}
           dot=${false} connectNulls=${false} isAnimationActive=${false} />
         <${Line} type="monotone" dataKey="projected" name="Projected" stroke=${tc.accent} strokeWidth=${2.5}
@@ -1257,12 +1274,15 @@ function DrawdownChart({ data, tc }) {
   </div>`;
 }
 
+const DEFAULT_JOB_TAX_PCT = 50;
+
 function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave, tc }) {
   const incomeOwners = useMemo(() => ownerNames.filter(o => o !== 'Joint'), [ownerNames]);
 
   const [incomes, setIncomes] = useState(assumptions.incomes);
   const [growthRate, setGrowthRate] = useState(assumptions.growth_rate);
-  const [monthlySpend, setMonthlySpend] = useState(assumptions.monthly_spend);
+  const [monthlyEssentials, setMonthlyEssentials] = useState(assumptions.monthly_essentials);
+  const [monthlyDiscretionary, setMonthlyDiscretionary] = useState(assumptions.monthly_discretionary);
   const [horizonYears, setHorizonYears] = useState(assumptions.horizon_years);
   const [includedCategories, setIncludedCategories] = useState(assumptions.included_categories);
   const [message, setMessage] = useState('');
@@ -1270,7 +1290,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   useEffect(() => {
     setIncomes(assumptions.incomes);
     setGrowthRate(assumptions.growth_rate);
-    setMonthlySpend(assumptions.monthly_spend);
+    setMonthlyEssentials(assumptions.monthly_essentials);
+    setMonthlyDiscretionary(assumptions.monthly_discretionary);
     setHorizonYears(assumptions.horizon_years);
     setIncludedCategories(assumptions.included_categories);
   }, [assumptions]);
@@ -1279,7 +1300,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     await onSave({
       incomes,
       growth_rate: Number(growthRate) || 0,
-      monthly_spend: Number(monthlySpend) || 0,
+      monthly_essentials: Number(monthlyEssentials) || 0,
+      monthly_discretionary: Number(monthlyDiscretionary) || 0,
       horizon_years: Math.max(1, Number(horizonYears) || 1),
       included_categories: includedCategories,
       ...patch,
@@ -1308,20 +1330,47 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
   const incomeEntries = useMemo(() => incomeOwners.flatMap(o => {
     const rec = incomes[o] || {};
-    const job1Annual = Number(rec.job1) || 0;
+    const job1Tax = rec.job1Tax !== '' && rec.job1Tax != null ? Number(rec.job1Tax) : DEFAULT_JOB_TAX_PCT;
+    const job1Net = (Number(rec.job1) || 0) * (1 - job1Tax / 100);
     const job1EndMonth = rec.job1Years ? Math.round(Number(rec.job1Years) * 12) : null;
-    const entries = [{ annual: job1Annual, startMonth: 1, endMonth: job1EndMonth }];
+    const entries = [{ annual: job1Net, startMonth: 1, endMonth: job1EndMonth }];
     const job2Annual = Number(rec.job2) || 0;
     if (job1EndMonth != null && job2Annual > 0) {
+      const job2Tax = rec.job2Tax !== '' && rec.job2Tax != null ? Number(rec.job2Tax) : DEFAULT_JOB_TAX_PCT;
+      const job2Net = job2Annual * (1 - job2Tax / 100);
       const job2EndMonth = rec.job2Years ? job1EndMonth + Math.round(Number(rec.job2Years) * 12) : null;
-      entries.push({ annual: job2Annual, startMonth: job1EndMonth + 1, endMonth: job2EndMonth });
+      entries.push({ annual: job2Net, startMonth: job1EndMonth + 1, endMonth: job2EndMonth });
     }
     return entries;
   }), [incomes, incomeOwners]);
 
+  const totalMonthlySpend = (Number(monthlyEssentials) || 0) + (Number(monthlyDiscretionary) || 0);
+
   const { rows: series, horizonBalance, depletionDate } = useMemo(() =>
-    buildDrawdownSeries(history, incomeEntries, Number(monthlySpend) || 0, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1)),
-    [history, incomeEntries, monthlySpend, growthRate, horizonYears]);
+    buildDrawdownSeries(history, incomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1)),
+    [history, incomeEntries, totalMonthlySpend, growthRate, horizonYears]);
+
+  // Per-category breakdown lines (actual history only — growth/spend are only
+  // modeled for the combined total, so these don't extend into the projection).
+  const categoryHistories = useMemo(() => {
+    const result = {};
+    for (const cat of includedCategories) {
+      const catAccounts = filteredAccounts.filter(a => (a.category || 'Cash') === cat);
+      if (catAccounts.length === 0) continue;
+      result[cat] = buildChartData(catAccounts, snapshots, null);
+    }
+    return result;
+  }, [filteredAccounts, snapshots, includedCategories]);
+
+  const chartCategories = useMemo(() => Object.keys(categoryHistories), [categoryHistories]);
+
+  const chartSeries = useMemo(() => {
+    const byDate = {};
+    for (const [cat, catRows] of Object.entries(categoryHistories)) {
+      for (const r of catRows) byDate[r.date] = { ...(byDate[r.date] || {}), [cat]: r.total };
+    }
+    return series.map(r => ({ ...r, ...(byDate[r.date] || {}) }));
+  }, [series, categoryHistories]);
 
   const startingBalance = history.length ? history[history.length - 1].total : 0;
 
@@ -1351,6 +1400,13 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   onInput=${e => updateIncome(o, 'job1Years', e.target.value)}
                   onBlur=${() => persist({})} style=${{ width: 110 }} />
               </div>
+              <div class="form-group">
+                <label>Job 1 tax (%)</label>
+                <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder=${String(DEFAULT_JOB_TAX_PCT)}
+                  value=${rec.job1Tax ?? ''}
+                  onInput=${e => updateIncome(o, 'job1Tax', e.target.value)}
+                  onBlur=${() => persist({})} style=${{ width: 90 }} />
+              </div>
             </div>
             <div class="form-row" style=${{ flexWrap: 'wrap' }}>
               <div class="form-group">
@@ -1367,6 +1423,13 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   onInput=${e => updateIncome(o, 'job2Years', e.target.value)}
                   onBlur=${() => persist({})} style=${{ width: 110 }} />
               </div>
+              <div class="form-group">
+                <label>Job 2 tax (%)</label>
+                <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder=${String(DEFAULT_JOB_TAX_PCT)}
+                  value=${rec.job2Tax ?? ''}
+                  onInput=${e => updateIncome(o, 'job2Tax', e.target.value)}
+                  onBlur=${() => persist({})} style=${{ width: 90 }} />
+              </div>
             </div>
           </div>`;
         })}
@@ -1379,9 +1442,15 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
             onBlur=${() => persist({})} style=${{ width: 100 }} />
         </div>
         <div class="form-group">
-          <label>Monthly spend (£)</label>
-          <input type="number" inputmode="decimal" step="10" min="0" value=${monthlySpend}
-            onInput=${e => setMonthlySpend(e.target.value)}
+          <label>Monthly essentials (£)</label>
+          <input type="number" inputmode="decimal" step="10" min="0" value=${monthlyEssentials}
+            onInput=${e => setMonthlyEssentials(e.target.value)}
+            onBlur=${() => persist({})} style=${{ width: 120 }} />
+        </div>
+        <div class="form-group">
+          <label>Monthly discretionary (£)</label>
+          <input type="number" inputmode="decimal" step="10" min="0" value=${monthlyDiscretionary}
+            onInput=${e => setMonthlyDiscretionary(e.target.value)}
             onBlur=${() => persist({})} style=${{ width: 120 }} />
         </div>
         <div class="form-group">
@@ -1423,7 +1492,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     <div class="chart-card">
       <div class="chart-card-header"><h2>Draw Down Projection</h2></div>
       <div class="chart-card-body">
-        <${DrawdownChart} data=${series} tc=${tc} />
+        <${DrawdownChart} data=${chartSeries} categories=${chartCategories.length > 1 ? chartCategories : []} tc=${tc} />
       </div>
     </div>
   </div>`;
