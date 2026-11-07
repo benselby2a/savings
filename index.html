@@ -573,8 +573,23 @@ function useOwners(supabase) {
   return { owners, loading, add, remove, refresh: fetch };
 }
 
+// Normalizes incomes to the per-owner { job1, job1Years, job2, job2Years } shape.
+// Older saved data stored a flat amount per owner (plus a separate income_years
+// map), so that shape is upgraded into job1 on first load.
+function normalizeIncomes(rawIncomes, rawYears) {
+  const result = {};
+  for (const [name, val] of Object.entries(rawIncomes || {})) {
+    if (val && typeof val === 'object') {
+      result[name] = { job1: val.job1 ?? '', job1Years: val.job1Years ?? '', job2: val.job2 ?? '', job2Years: val.job2Years ?? '' };
+    } else {
+      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job2: '', job2Years: '' };
+    }
+  }
+  return result;
+}
+
 function useDrawdownAssumptions(supabase) {
-  const DEFAULTS = { incomes: {}, income_years: {}, growth_rate: 4, monthly_spend: 0, horizon_years: 20, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
+  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_spend: 0, horizon_years: 20, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
   const [assumptions, setAssumptions] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
@@ -583,8 +598,7 @@ function useDrawdownAssumptions(supabase) {
       const { data } = await supabase.from('drawdown_assumptions').select('*').eq('id', 'default').maybeSingle();
       if (data) {
         setAssumptions({
-          incomes: data.incomes || {},
-          income_years: data.income_years || {},
+          incomes: normalizeIncomes(data.incomes, data.income_years),
           growth_rate: Number(data.growth_rate),
           monthly_spend: Number(data.monthly_spend),
           horizon_years: Number(data.horizon_years),
@@ -1156,6 +1170,9 @@ function DataTable({ accounts, data, selectedIds, tc }) {
 
 // ── Draw Down Modeller ───────────────────────────────────────────
 
+// incomeEntries: [{ annual, startMonth, endMonth }], endMonth null = indefinite.
+// Simulates past the chosen horizon (up to a 70y hard cap) when needed to reach
+// the point the balance actually depletes, so that point is always visible.
 function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears) {
   const monthlyRate = growthRatePct / 100 / 12;
   const rows = history.map(h => ({ date: h.date, _ts: new Date(h.date).getTime(), actual: h.total, projected: null }));
@@ -1168,17 +1185,36 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
     rows.push({ date: lastDate.toISOString().slice(0, 10), _ts: lastDate.getTime(), actual: null, projected: balance });
   }
 
-  const months = Math.round(horizonYears * 12);
-  for (let m = 1; m <= months; m++) {
+  const MAX_YEARS = 70;
+  const minMonths = Math.round(horizonYears * 12);
+  const maxMonths = MAX_YEARS * 12;
+
+  let horizonBalance = balance;
+  let depletionMonth = null;
+  let depletionDate = null;
+  const projected = [];
+
+  for (let m = 1; m <= maxMonths; m++) {
     let monthlyIncome = 0;
     for (const inc of incomeEntries) {
-      if (inc.years == null || m <= inc.years * 12) monthlyIncome += inc.annual / 12;
+      if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) monthlyIncome += inc.annual / 12;
     }
     balance = balance * (1 + monthlyRate) + monthlyIncome - monthlySpend;
     const d = new Date(lastDate.getFullYear(), lastDate.getMonth() + m, lastDate.getDate());
-    rows.push({ date: d.toISOString().slice(0, 10), _ts: d.getTime(), actual: null, projected: balance });
+    projected.push({ date: d.toISOString().slice(0, 10), _ts: d.getTime(), actual: null, projected: balance });
+
+    if (m === minMonths) horizonBalance = balance;
+    if (depletionMonth == null && balance <= 0) {
+      depletionMonth = m;
+      depletionDate = d.toISOString().slice(0, 10);
+    }
+    if (depletionMonth != null && m >= Math.max(minMonths, depletionMonth + 6)) break;
   }
-  return rows;
+
+  const keepMonths = depletionMonth != null ? Math.min(projected.length, Math.max(minMonths, depletionMonth + 6)) : minMonths;
+  rows.push(...projected.slice(0, keepMonths));
+
+  return { rows, horizonBalance, depletionDate };
 }
 
 function DrawdownTooltip({ active, payload, label }) {
@@ -1223,7 +1259,6 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const incomeOwners = useMemo(() => ownerNames.filter(o => o !== 'Joint'), [ownerNames]);
 
   const [incomes, setIncomes] = useState(assumptions.incomes);
-  const [incomeYears, setIncomeYears] = useState(assumptions.income_years);
   const [growthRate, setGrowthRate] = useState(assumptions.growth_rate);
   const [monthlySpend, setMonthlySpend] = useState(assumptions.monthly_spend);
   const [horizonYears, setHorizonYears] = useState(assumptions.horizon_years);
@@ -1232,7 +1267,6 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
   useEffect(() => {
     setIncomes(assumptions.incomes);
-    setIncomeYears(assumptions.income_years);
     setGrowthRate(assumptions.growth_rate);
     setMonthlySpend(assumptions.monthly_spend);
     setHorizonYears(assumptions.horizon_years);
@@ -1242,7 +1276,6 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const persist = async (patch) => {
     await onSave({
       incomes,
-      income_years: incomeYears,
       growth_rate: Number(growthRate) || 0,
       monthly_spend: Number(monthlySpend) || 0,
       horizon_years: Math.max(1, Number(horizonYears) || 1),
@@ -1251,6 +1284,10 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     });
     setMessage('Saved');
     setTimeout(() => setMessage(''), 1500);
+  };
+
+  const updateIncome = (owner, field, value) => {
+    setIncomes(prev => ({ ...prev, [owner]: { ...(prev[owner] || {}), [field]: value } }));
   };
 
   const toggleCategory = (c) => {
@@ -1267,17 +1304,24 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
   const history = useMemo(() => buildChartData(filteredAccounts, snapshots, null), [filteredAccounts, snapshots]);
 
-  const incomeEntries = useMemo(() =>
-    incomeOwners.map(o => ({ annual: Number(incomes[o]) || 0, years: incomeYears[o] ? Number(incomeYears[o]) : null })),
-    [incomes, incomeYears, incomeOwners]);
+  const incomeEntries = useMemo(() => incomeOwners.flatMap(o => {
+    const rec = incomes[o] || {};
+    const job1Annual = Number(rec.job1) || 0;
+    const job1EndMonth = rec.job1Years ? Math.round(Number(rec.job1Years) * 12) : null;
+    const entries = [{ annual: job1Annual, startMonth: 1, endMonth: job1EndMonth }];
+    const job2Annual = Number(rec.job2) || 0;
+    if (job1EndMonth != null && job2Annual > 0) {
+      const job2EndMonth = rec.job2Years ? job1EndMonth + Math.round(Number(rec.job2Years) * 12) : null;
+      entries.push({ annual: job2Annual, startMonth: job1EndMonth + 1, endMonth: job2EndMonth });
+    }
+    return entries;
+  }), [incomes, incomeOwners]);
 
-  const series = useMemo(() =>
+  const { rows: series, horizonBalance, depletionDate } = useMemo(() =>
     buildDrawdownSeries(history, incomeEntries, Number(monthlySpend) || 0, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1)),
     [history, incomeEntries, monthlySpend, growthRate, horizonYears]);
 
   const startingBalance = history.length ? history[history.length - 1].total : 0;
-  const horizonBalance = series.length ? series[series.length - 1].projected : startingBalance;
-  const depletion = useMemo(() => series.find((r, i) => i > 0 && r.projected != null && r.projected <= 0), [series]);
 
   return html`<div>
     <div class="card">
@@ -1285,23 +1329,47 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
         <h2>Assumptions</h2>
         ${message && html`<span class="success">${message}</span>`}
       </div>
+      <div style=${{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+        ${incomeOwners.map(o => {
+          const rec = incomes[o] || {};
+          return html`<div key=${o} style=${{ border: '1px solid var(--border-main)', borderRadius: 4, padding: '8px 10px' }}>
+            <div style=${{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>${o}</div>
+            <div class="form-row" style=${{ flexWrap: 'wrap', marginBottom: 6 }}>
+              <div class="form-group">
+                <label>Job 1 income (£/yr)</label>
+                <input type="number" inputmode="decimal" min="0" step="100" placeholder="0"
+                  value=${rec.job1 ?? ''}
+                  onInput=${e => updateIncome(o, 'job1', e.target.value)}
+                  onBlur=${() => persist({})} style=${{ width: 130 }} />
+              </div>
+              <div class="form-group">
+                <label>Ends after (yrs)</label>
+                <input type="number" inputmode="numeric" min="0" step="1" placeholder="Indefinite"
+                  value=${rec.job1Years ?? ''}
+                  onInput=${e => updateIncome(o, 'job1Years', e.target.value)}
+                  onBlur=${() => persist({})} style=${{ width: 110 }} />
+              </div>
+            </div>
+            <div class="form-row" style=${{ flexWrap: 'wrap' }}>
+              <div class="form-group">
+                <label>Job 2 income (£/yr)</label>
+                <input type="number" inputmode="decimal" min="0" step="100" placeholder="Optional"
+                  value=${rec.job2 ?? ''}
+                  onInput=${e => updateIncome(o, 'job2', e.target.value)}
+                  onBlur=${() => persist({})} style=${{ width: 130 }} />
+              </div>
+              <div class="form-group">
+                <label>Job 2 lasts (yrs)</label>
+                <input type="number" inputmode="numeric" min="0" step="1" placeholder="Indefinite"
+                  value=${rec.job2Years ?? ''}
+                  onInput=${e => updateIncome(o, 'job2Years', e.target.value)}
+                  onBlur=${() => persist({})} style=${{ width: 110 }} />
+              </div>
+            </div>
+          </div>`;
+        })}
+      </div>
       <div class="form-row" style=${{ flexWrap: 'wrap' }}>
-        ${incomeOwners.flatMap(o => [
-          html`<div class="form-group" key=${o + '-income'}>
-            <label>Annual income — ${o}</label>
-            <input type="number" inputmode="decimal" min="0" step="100" placeholder="0"
-              value=${incomes[o] ?? ''}
-              onInput=${e => setIncomes({ ...incomes, [o]: e.target.value })}
-              onBlur=${() => persist({})} style=${{ width: 140 }} />
-          </div>`,
-          html`<div class="form-group" key=${o + '-years'}>
-            <label>Valid for (yrs) — ${o}</label>
-            <input type="number" inputmode="numeric" min="0" step="1" placeholder="Indefinite"
-              value=${incomeYears[o] ?? ''}
-              onInput=${e => setIncomeYears({ ...incomeYears, [o]: e.target.value })}
-              onBlur=${() => persist({})} style=${{ width: 120 }} />
-          </div>`,
-        ])}
         <div class="form-group">
           <label>Annual growth rate (%)</label>
           <input type="number" inputmode="decimal" step="0.1" value=${growthRate}
@@ -1342,8 +1410,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
           <span class="stat-label">Projected in ${horizonYears}y</span>
         </div>
         <div class="stat">
-          <span class=${'stat-change ' + (depletion ? 'negative' : 'positive')}>
-            ${depletion ? `Depletes ${fmtDate(depletion.date)}` : `Lasts ${horizonYears}y+`}
+          <span class=${'stat-change ' + (depletionDate ? 'negative' : 'positive')}>
+            ${depletionDate ? `Depletes ${fmtDate(depletionDate)}` : `Lasts 70y+`}
           </span>
           <span class="stat-label">Outlook</span>
         </div>
