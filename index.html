@@ -573,6 +573,34 @@ function useOwners(supabase) {
   return { owners, loading, add, remove, refresh: fetch };
 }
 
+function useDrawdownAssumptions(supabase) {
+  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_spend: 0, horizon_years: 20 };
+  const [assumptions, setAssumptions] = useState(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('drawdown_assumptions').select('*').eq('id', 'default').maybeSingle();
+      if (data) {
+        setAssumptions({
+          incomes: data.incomes || {},
+          growth_rate: Number(data.growth_rate),
+          monthly_spend: Number(data.monthly_spend),
+          horizon_years: Number(data.horizon_years),
+        });
+      }
+      setLoading(false);
+    })();
+  }, [supabase]);
+
+  const save = async (next) => {
+    setAssumptions(next);
+    await supabase.from('drawdown_assumptions').upsert({ id: 'default', ...next, updated_at: new Date().toISOString() });
+  };
+
+  return { assumptions, loading, save };
+}
+
 // ── Account Manager ──────────────────────────────────────────────
 
 function AccountManager({ accounts, owners, onAdd, onUpdate, onRemove }) {
@@ -1124,12 +1152,176 @@ function DataTable({ accounts, data, selectedIds, tc }) {
   </div>`;
 }
 
+// ── Draw Down Modeller ───────────────────────────────────────────
+
+function buildDrawdownSeries(history, monthlyIncome, monthlySpend, growthRatePct, horizonYears) {
+  const monthlyRate = growthRatePct / 100 / 12;
+  const rows = history.map(h => ({ date: h.date, _ts: new Date(h.date).getTime(), actual: h.total, projected: null }));
+
+  const lastDate = history.length ? new Date(history[history.length - 1].date) : new Date();
+  let balance = history.length ? history[history.length - 1].total : 0;
+  if (rows.length) {
+    rows[rows.length - 1].projected = balance;
+  } else {
+    rows.push({ date: lastDate.toISOString().slice(0, 10), _ts: lastDate.getTime(), actual: null, projected: balance });
+  }
+
+  const months = Math.round(horizonYears * 12);
+  for (let m = 1; m <= months; m++) {
+    balance = balance * (1 + monthlyRate) + monthlyIncome - monthlySpend;
+    const d = new Date(lastDate.getFullYear(), lastDate.getMonth() + m, lastDate.getDate());
+    rows.push({ date: d.toISOString().slice(0, 10), _ts: d.getTime(), actual: null, projected: balance });
+  }
+  return rows;
+}
+
+function DrawdownTooltip({ active, payload, label }) {
+  if (!active || !payload) return null;
+  const sorted = payload.filter(p => p.value != null);
+  if (sorted.length === 0) return null;
+  return html`<div style=${{ background: 'var(--tooltip-bg)', border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: '0.82rem', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+    <div style=${{ fontWeight: 600, marginBottom: 6, color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }}>${fmtDate(new Date(label).toISOString().slice(0, 10))}</div>
+    ${sorted.map(p => html`<div key=${p.dataKey} style=${{ display: 'flex', justifyContent: 'space-between', gap: 20, padding: '2px 0' }}>
+      <span style=${{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style=${{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }}></span>
+        ${p.name}
+      </span>
+      <span style=${{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>${GBP(p.value)}</span>
+    </div>`)}
+  </div>`;
+}
+
+function DrawdownChart({ data, tc }) {
+  if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
+  return html`<div class="chart-container">
+    <${ResponsiveContainer} width="100%" height=${400}>
+      <${ComposedChart} data=${data} margin=${{ top: 5, right: 20, left: 0, bottom: 5 }}>
+        <${CartesianGrid} strokeDasharray="3 3" stroke=${tc.grid} />
+        <${XAxis} dataKey="_ts" type="number" scale="time" domain=${['dataMin', 'dataMax']}
+          tickFormatter=${ts => fmtDate(new Date(ts).toISOString().slice(0, 10))}
+          tick=${{ fontSize: 11, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${{ stroke: tc.axisLine }} tickLine=${false}
+          interval="preserveStartEnd" />
+        <${YAxis} tickFormatter=${compactGBP} tick=${{ fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${false} tickLine=${false} width=${50} />
+        <${Tooltip} content=${html`<${DrawdownTooltip} />`} />
+        <${ReferenceLine} y=${0} stroke=${tc.axisLine} strokeDasharray="3 3" />
+        <${Line} type="monotone" dataKey="actual" name="Actual" stroke=${tc.totalLine} strokeWidth=${2.5}
+          dot=${false} connectNulls=${false} isAnimationActive=${false} />
+        <${Line} type="monotone" dataKey="projected" name="Projected" stroke=${tc.accent} strokeWidth=${2.5}
+          strokeDasharray="6 4" dot=${false} connectNulls=${true} isAnimationActive=${false} />
+      <//>
+    <//>
+  </div>`;
+}
+
+function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave, tc }) {
+  const [incomes, setIncomes] = useState(assumptions.incomes);
+  const [growthRate, setGrowthRate] = useState(assumptions.growth_rate);
+  const [monthlySpend, setMonthlySpend] = useState(assumptions.monthly_spend);
+  const [horizonYears, setHorizonYears] = useState(assumptions.horizon_years);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    setIncomes(assumptions.incomes);
+    setGrowthRate(assumptions.growth_rate);
+    setMonthlySpend(assumptions.monthly_spend);
+    setHorizonYears(assumptions.horizon_years);
+  }, [assumptions]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave({
+      incomes,
+      growth_rate: Number(growthRate) || 0,
+      monthly_spend: Number(monthlySpend) || 0,
+      horizon_years: Math.max(1, Number(horizonYears) || 1),
+    });
+    setSaving(false);
+    setMessage('Saved!');
+    setTimeout(() => setMessage(''), 2000);
+  };
+
+  const history = useMemo(() => buildChartData(accounts, snapshots, null), [accounts, snapshots]);
+
+  const monthlyIncome = useMemo(() =>
+    ownerNames.reduce((sum, o) => sum + (Number(incomes[o]) || 0), 0) / 12,
+    [incomes, ownerNames]);
+
+  const series = useMemo(() =>
+    buildDrawdownSeries(history, monthlyIncome, Number(monthlySpend) || 0, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1)),
+    [history, monthlyIncome, monthlySpend, growthRate, horizonYears]);
+
+  const startingBalance = history.length ? history[history.length - 1].total : 0;
+  const horizonBalance = series.length ? series[series.length - 1].projected : startingBalance;
+  const depletion = useMemo(() => series.find((r, i) => i > 0 && r.projected != null && r.projected <= 0), [series]);
+
+  return html`<div>
+    <div class="card">
+      <h2>Assumptions</h2>
+      <div class="form-row" style=${{ flexWrap: 'wrap' }}>
+        ${ownerNames.map(o => html`<div class="form-group" key=${o}>
+          <label>Annual income — ${o}</label>
+          <input type="number" inputmode="decimal" min="0" step="100" placeholder="0"
+            value=${incomes[o] ?? ''}
+            onInput=${e => setIncomes({ ...incomes, [o]: e.target.value })} style=${{ width: 140 }} />
+        </div>`)}
+        <div class="form-group">
+          <label>Annual growth rate (%)</label>
+          <input type="number" inputmode="decimal" step="0.1" value=${growthRate}
+            onInput=${e => setGrowthRate(e.target.value)} style=${{ width: 100 }} />
+        </div>
+        <div class="form-group">
+          <label>Monthly spend (£)</label>
+          <input type="number" inputmode="decimal" step="10" min="0" value=${monthlySpend}
+            onInput=${e => setMonthlySpend(e.target.value)} style=${{ width: 120 }} />
+        </div>
+        <div class="form-group">
+          <label>Horizon (years)</label>
+          <input type="number" inputmode="numeric" step="1" min="1" max="60" value=${horizonYears}
+            onInput=${e => setHorizonYears(e.target.value)} style=${{ width: 100 }} />
+        </div>
+      </div>
+      <div style=${{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button class="btn-primary" onClick=${handleSave} disabled=${saving}>${saving ? 'Saving...' : 'Save Assumptions'}</button>
+        ${message && html`<span class="success">${message}</span>`}
+      </div>
+    </div>
+
+    ${accounts.length > 0 && html`<div class="chart-card">
+      <div class="stats-row" style=${{ paddingTop: 16 }}>
+        <div class="stat">
+          <span class="stat-value">${GBP(startingBalance)}</span>
+          <span class="stat-label">Current total</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">${GBP(Math.max(horizonBalance, 0))}</span>
+          <span class="stat-label">Projected in ${horizonYears}y</span>
+        </div>
+        <div class="stat">
+          <span class=${'stat-change ' + (depletion ? 'negative' : 'positive')}>
+            ${depletion ? `Depletes ${fmtDate(depletion.date)}` : `Lasts ${horizonYears}y+`}
+          </span>
+          <span class="stat-label">Outlook</span>
+        </div>
+      </div>
+    </div>`}
+
+    <div class="chart-card">
+      <div class="chart-card-header"><h2>Draw Down Projection</h2></div>
+      <div class="chart-card-body">
+        <${DrawdownChart} data=${series} tc=${tc} />
+      </div>
+    </div>
+  </div>`;
+}
+
 // ── Dashboard ────────────────────────────────────────────────────
 
 function Dashboard({ supabase, userId, userEmail, onLogout }) {
   const { accounts, loading: accLoading, add: addAccount, update: updateAccount, remove: removeAccount } = useAccounts(supabase, userId);
   const { snapshots, loading: snapLoading, saveBatch } = useSnapshots(supabase, userId);
   const { owners: ownerRecords, loading: ownersLoading, add: addOwner, remove: removeOwner } = useOwners(supabase);
+  const { assumptions: drawdownAssumptions, loading: drawdownLoading, save: saveDrawdownAssumptions } = useDrawdownAssumptions(supabase);
   const [tab, setTab] = useState('dashboard');
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('ALL_EXC_PP');
@@ -1237,11 +1429,12 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
     return { currentTotal, change, changePct, latestDate: latest.dateLabel };
   }, [chartData, selectedAccounts]);
 
-  if (accLoading || snapLoading || ownersLoading) return html`<div class="loading">Loading...</div>`;
+  if (accLoading || snapLoading || ownersLoading || drawdownLoading) return html`<div class="loading">Loading...</div>`;
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'entry', label: 'Data Entry' },
+    { id: 'drawdown', label: 'Draw Down Modeller' },
     { id: 'accounts', label: 'Accounts' },
   ];
 
@@ -1341,6 +1534,8 @@ function Dashboard({ supabase, userId, userEmail, onLogout }) {
     </div>`}
 
     ${tab === 'entry' && html`<${SnapshotEntry} accounts=${visibleAccounts} snapshots=${snapshots} onSave=${saveBatch} />`}
+    ${tab === 'drawdown' && html`<${DrawdownModeller} accounts=${visibleAccounts} snapshots=${snapshots} ownerNames=${ownerNames}
+      assumptions=${drawdownAssumptions} onSave=${saveDrawdownAssumptions} tc=${tc} />`}
     ${tab === 'accounts' && html`<div>
       <${AccountManager} accounts=${accounts} owners=${ownerNames} onAdd=${addAccount} onUpdate=${updateAccount} onRemove=${removeAccount} />
       <${OwnerManager} owners=${ownerRecords} accounts=${accounts} onAdd=${addOwner} onRemove=${removeOwner} />
