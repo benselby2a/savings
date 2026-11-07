@@ -1186,8 +1186,10 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
   }
 
   const MAX_YEARS = 70;
+  const POST_DEPLETION_YEARS = 5;
   const minMonths = Math.round(horizonYears * 12);
   const maxMonths = MAX_YEARS * 12;
+  const postDepletionMonths = POST_DEPLETION_YEARS * 12;
 
   let horizonBalance = balance;
   let depletionMonth = null;
@@ -1208,10 +1210,10 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
       depletionMonth = m;
       depletionDate = d.toISOString().slice(0, 10);
     }
-    if (depletionMonth != null && m >= Math.max(minMonths, depletionMonth + 6)) break;
+    if (depletionMonth != null && m >= Math.max(minMonths, depletionMonth + postDepletionMonths)) break;
   }
 
-  const keepMonths = depletionMonth != null ? Math.min(projected.length, Math.max(minMonths, depletionMonth + 6)) : minMonths;
+  const keepMonths = depletionMonth != null ? Math.min(projected.length, Math.max(minMonths, depletionMonth + postDepletionMonths)) : minMonths;
   rows.push(...projected.slice(0, keepMonths));
 
   return { rows, horizonBalance, depletionDate };
