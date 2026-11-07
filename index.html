@@ -588,11 +588,11 @@ function normalizeIncomes(rawIncomes, rawYears) {
   for (const [name, val] of Object.entries(rawIncomes || {})) {
     if (val && typeof val === 'object') {
       result[name] = {
-        job1: val.job1 ?? '', job1Years: val.job1Years ?? '', job1Tax: val.job1Tax ?? '',
-        job2: val.job2 ?? '', job2Years: val.job2Years ?? '', job2Tax: val.job2Tax ?? '',
+        job1: val.job1 ?? '', job1Years: val.job1Years ?? '', job1Tax: val.job1Tax ?? '', job1Pension: val.job1Pension ?? '',
+        job2: val.job2 ?? '', job2Years: val.job2Years ?? '', job2Tax: val.job2Tax ?? '', job2Pension: val.job2Pension ?? '',
       };
     } else {
-      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job1Tax: '', job2: '', job2Years: '', job2Tax: '' };
+      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job1Tax: '', job1Pension: '', job2: '', job2Years: '', job2Tax: '', job2Pension: '' };
     }
   }
   return result;
@@ -1188,19 +1188,23 @@ function DataTable({ accounts, data, selectedIds, tc }) {
 // ── Draw Down Modeller ───────────────────────────────────────────
 
 // incomeEntries: [{ annual, startMonth, endMonth }], endMonth null = indefinite.
+// pensionContributionEntries: same shape, added directly to the pension
+// category's balance each month (on top of its growth, whether locked or
+// not) rather than into the general income/spend flow.
 // categoryBalances: optional { [category]: balance at the junction date }, used to
 // project each category forward in proportion to its current share of the total
 // each month, so the category lines always sum back to the total/projected line.
 // pensionCategory/retirementMonth: while set and the current month is before
 // retirementMonth, that category is excluded from the flow split entirely (it
-// only compounds at the growth rate) so it isn't drawn down early; once
-// retirementMonth is reached it joins the others and shares in the flow like
-// any other category from then on. The combined total is always the sum of
-// the category balances when any are tracked, so locking a category for a
-// while genuinely changes when the rest runs out — not just a cosmetic split.
+// only compounds at the growth rate, plus any pension contribution) so it
+// isn't drawn down early; once retirementMonth is reached it joins the others
+// and shares in the flow like any other category from then on. The combined
+// total is always the sum of the category balances when any are tracked, so
+// locking a category for a while genuinely changes when the rest runs out —
+// not just a cosmetic split.
 // Simulates past the chosen horizon (up to a 70y hard cap) when needed to reach
 // the point the balance actually depletes, so that point is always visible.
-function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears, categoryBalances, pensionCategory, retirementMonth) {
+function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears, categoryBalances, pensionCategory, retirementMonth, pensionContributionEntries) {
   const monthlyRate = growthRatePct / 100 / 12;
   const rows = history.map(h => ({ date: h.date, _ts: new Date(h.date).getTime(), actual: h.total, projected: null }));
 
@@ -1234,6 +1238,10 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
     for (const inc of incomeEntries) {
       if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) monthlyIncome += inc.annual / 12;
     }
+    let monthlyPensionContribution = 0;
+    for (const inc of (pensionContributionEntries || [])) {
+      if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) monthlyPensionContribution += inc.annual / 12;
+    }
     const flow = monthlyIncome - monthlySpend;
 
     const row = { date: null, _ts: null, actual: null, projected: null };
@@ -1243,11 +1251,12 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
       const prevFlowTotal = flowKeys.reduce((s, k) => s + catBalances[k], 0);
       const nextCatBalances = {};
       for (const k of catKeys) {
+        const contribution = k === pensionCategory ? monthlyPensionContribution : 0;
         if (pensionLocked && k === pensionCategory) {
-          nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRate));
+          nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRate) + contribution);
         } else {
           const share = prevFlowTotal > 0 ? catBalances[k] / prevFlowTotal : 1 / flowKeys.length;
-          nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRate) + flow * share);
+          nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRate) + flow * share + contribution);
         }
         row[k + '__proj'] = nextCatBalances[k];
       }
@@ -1421,15 +1430,35 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const incomeEntries = useMemo(() => incomeOwners.flatMap(o => {
     const rec = incomes[o] || {};
     const job1Tax = rec.job1Tax !== '' && rec.job1Tax != null ? Number(rec.job1Tax) : DEFAULT_JOB_TAX_PCT;
-    const job1Net = (Number(rec.job1) || 0) * (1 - job1Tax / 100);
+    const job1Pension = Number(rec.job1Pension) || 0;
+    const job1Net = (Number(rec.job1) || 0) * (1 - job1Tax / 100 - job1Pension / 100);
     const job1EndMonth = rec.job1Years ? Math.round(Number(rec.job1Years) * 12) : null;
     const entries = [{ annual: job1Net, startMonth: 1, endMonth: job1EndMonth }];
     const job2Annual = Number(rec.job2) || 0;
     if (job1EndMonth != null && job2Annual > 0) {
       const job2Tax = rec.job2Tax !== '' && rec.job2Tax != null ? Number(rec.job2Tax) : DEFAULT_JOB_TAX_PCT;
-      const job2Net = job2Annual * (1 - job2Tax / 100);
+      const job2Pension = Number(rec.job2Pension) || 0;
+      const job2Net = job2Annual * (1 - job2Tax / 100 - job2Pension / 100);
       const job2EndMonth = rec.job2Years ? job1EndMonth + Math.round(Number(rec.job2Years) * 12) : null;
       entries.push({ annual: job2Net, startMonth: job1EndMonth + 1, endMonth: job2EndMonth });
+    }
+    return entries;
+  }), [incomes, incomeOwners]);
+
+  // Pension contributions: a configurable % of each job's gross income, paid
+  // straight into the Pensions category each month (separate from take-home
+  // income/spend) regardless of whether the pension is still locked.
+  const pensionContributionEntries = useMemo(() => incomeOwners.flatMap(o => {
+    const rec = incomes[o] || {};
+    const job1Pension = Number(rec.job1Pension) || 0;
+    const job1EndMonth = rec.job1Years ? Math.round(Number(rec.job1Years) * 12) : null;
+    const entries = [];
+    if (job1Pension > 0) entries.push({ annual: (Number(rec.job1) || 0) * (job1Pension / 100), startMonth: 1, endMonth: job1EndMonth });
+    const job2Pension = Number(rec.job2Pension) || 0;
+    const job2Annual = Number(rec.job2) || 0;
+    if (job1EndMonth != null && job2Annual > 0 && job2Pension > 0) {
+      const job2EndMonth = rec.job2Years ? job1EndMonth + Math.round(Number(rec.job2Years) * 12) : null;
+      entries.push({ annual: job2Annual * (job2Pension / 100), startMonth: job1EndMonth + 1, endMonth: job2EndMonth });
     }
     return entries;
   }), [incomes, incomeOwners]);
@@ -1474,8 +1503,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   }, [yearOfBirth, retirementAge, history]);
 
   const { rows: series, horizonBalance, depletionDate } = useMemo(() =>
-    buildDrawdownSeries(history, incomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1), categoryStartBalances, 'Pensions', retirementMonth),
-    [history, incomeEntries, totalMonthlySpend, growthRate, horizonYears, categoryStartBalances, retirementMonth]);
+    buildDrawdownSeries(history, incomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1), categoryStartBalances, 'Pensions', retirementMonth, pensionContributionEntries),
+    [history, incomeEntries, totalMonthlySpend, growthRate, horizonYears, categoryStartBalances, retirementMonth, pensionContributionEntries]);
 
   const chartSeries = useMemo(() => {
     const byDate = {};
@@ -1549,6 +1578,13 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   onInput=${e => updateIncome(o, 'job1Tax', e.target.value)}
                   onBlur=${() => persist({})} style=${{ width: 90 }} />
               </div>
+              <div class="form-group">
+                <label>Job 1 pension (%)</label>
+                <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder="0"
+                  value=${rec.job1Pension ?? ''}
+                  onInput=${e => updateIncome(o, 'job1Pension', e.target.value)}
+                  onBlur=${() => persist({})} style=${{ width: 90 }} />
+              </div>
             </div>
             <div class="form-row" style=${{ flexWrap: 'wrap' }}>
               <div class="form-group">
@@ -1570,6 +1606,13 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                 <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder=${String(DEFAULT_JOB_TAX_PCT)}
                   value=${rec.job2Tax ?? ''}
                   onInput=${e => updateIncome(o, 'job2Tax', e.target.value)}
+                  onBlur=${() => persist({})} style=${{ width: 90 }} />
+              </div>
+              <div class="form-group">
+                <label>Job 2 pension (%)</label>
+                <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder="0"
+                  value=${rec.job2Pension ?? ''}
+                  onInput=${e => updateIncome(o, 'job2Pension', e.target.value)}
                   onBlur=${() => persist({})} style=${{ width: 90 }} />
               </div>
             </div>
