@@ -162,6 +162,7 @@
   .form-group { display: flex; flex-direction: column; gap: 4px; }
   .form-group label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
   .form-group.flex-1 { flex: 1; }
+  .dd-field input { width: 110px; max-width: 100%; }
   table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
   th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border-table); }
   .cell-value-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.3; }
@@ -309,6 +310,9 @@
 
     /* Account manager form */
     .form-row { flex-direction: column; gap: 8px; }
+
+    /* Draw Down Modeller fields: full width instead of small fixed-width boxes */
+    .dd-field, .dd-field input { width: 100%; }
 
     /* Account items */
     .account-item { flex-wrap: wrap; gap: 6px; padding: 6px; }
@@ -1557,110 +1561,110 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
           const rec = incomes[o] || {};
           return html`<div style=${{ border: '1px solid var(--border-main)', borderRadius: 4, padding: '8px 10px' }}>
             <div class="form-row" style=${{ flexWrap: 'wrap', marginBottom: 6 }}>
-              <div class="form-group">
+              <div class="form-group dd-field">
                 <label>Job 1 income (£/yr)</label>
                 <input type="number" inputmode="decimal" min="0" step="100" placeholder="0"
                   value=${rec.job1 ?? ''}
                   onInput=${e => updateIncome(o, 'job1', e.target.value)}
-                  onBlur=${() => persist({})} style=${{ width: 130 }} />
+                  onBlur=${() => persist({})} />
               </div>
-              <div class="form-group">
+              <div class="form-group dd-field">
                 <label>Ends after (yrs)</label>
                 <input type="number" inputmode="numeric" min="0" step="1" placeholder="Indefinite"
                   value=${rec.job1Years ?? ''}
                   onInput=${e => updateIncome(o, 'job1Years', e.target.value)}
-                  onBlur=${() => persist({})} style=${{ width: 110 }} />
+                  onBlur=${() => persist({})} />
               </div>
-              <div class="form-group">
+              <div class="form-group dd-field">
                 <label>Job 1 tax (%)</label>
                 <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder=${String(DEFAULT_JOB_TAX_PCT)}
                   value=${rec.job1Tax ?? ''}
                   onInput=${e => updateIncome(o, 'job1Tax', e.target.value)}
-                  onBlur=${() => persist({})} style=${{ width: 90 }} />
+                  onBlur=${() => persist({})} />
               </div>
-              <div class="form-group">
+              <div class="form-group dd-field">
                 <label>Job 1 pension (%)</label>
                 <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder="0"
                   value=${rec.job1Pension ?? ''}
                   onInput=${e => updateIncome(o, 'job1Pension', e.target.value)}
-                  onBlur=${() => persist({})} style=${{ width: 90 }} />
+                  onBlur=${() => persist({})} />
               </div>
             </div>
             <div class="form-row" style=${{ flexWrap: 'wrap' }}>
-              <div class="form-group">
+              <div class="form-group dd-field">
                 <label>Job 2 income (£/yr)</label>
                 <input type="number" inputmode="decimal" min="0" step="100" placeholder="Optional"
                   value=${rec.job2 ?? ''}
                   onInput=${e => updateIncome(o, 'job2', e.target.value)}
-                  onBlur=${() => persist({})} style=${{ width: 130 }} />
+                  onBlur=${() => persist({})} />
               </div>
-              <div class="form-group">
+              <div class="form-group dd-field">
                 <label>Job 2 lasts (yrs)</label>
                 <input type="number" inputmode="numeric" min="0" step="1" placeholder="Indefinite"
                   value=${rec.job2Years ?? ''}
                   onInput=${e => updateIncome(o, 'job2Years', e.target.value)}
-                  onBlur=${() => persist({})} style=${{ width: 110 }} />
+                  onBlur=${() => persist({})} />
               </div>
-              <div class="form-group">
+              <div class="form-group dd-field">
                 <label>Job 2 tax (%)</label>
                 <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder=${String(DEFAULT_JOB_TAX_PCT)}
                   value=${rec.job2Tax ?? ''}
                   onInput=${e => updateIncome(o, 'job2Tax', e.target.value)}
-                  onBlur=${() => persist({})} style=${{ width: 90 }} />
+                  onBlur=${() => persist({})} />
               </div>
-              <div class="form-group">
+              <div class="form-group dd-field">
                 <label>Job 2 pension (%)</label>
                 <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder="0"
                   value=${rec.job2Pension ?? ''}
                   onInput=${e => updateIncome(o, 'job2Pension', e.target.value)}
-                  onBlur=${() => persist({})} style=${{ width: 90 }} />
+                  onBlur=${() => persist({})} />
               </div>
             </div>
           </div>`;
         })()}
       </div>`}
       <div class="form-row" style=${{ flexWrap: 'wrap' }}>
-        <div class="form-group">
+        <div class="form-group dd-field">
           <label>Annual growth rate (%)</label>
           <input type="number" inputmode="decimal" step="0.1" value=${growthRate}
             onInput=${e => setGrowthRate(e.target.value)}
-            onBlur=${() => persist({})} style=${{ width: 100 }} />
+            onBlur=${() => persist({})} />
         </div>
-        <div class="form-group">
+        <div class="form-group dd-field">
           <label>Monthly essentials (£)</label>
           <input type="number" inputmode="decimal" step="10" min="0" value=${monthlyEssentials}
             onInput=${e => setMonthlyEssentials(e.target.value)}
-            onBlur=${() => persist({})} style=${{ width: 120 }} />
+            onBlur=${() => persist({})} />
         </div>
-        <div class="form-group">
+        <div class="form-group dd-field">
           <label>Monthly discretionary (£)</label>
           <input type="number" inputmode="decimal" step="10" min="0" value=${monthlyDiscretionary}
             onInput=${e => setMonthlyDiscretionary(e.target.value)}
-            onBlur=${() => persist({})} style=${{ width: 120 }} />
+            onBlur=${() => persist({})} />
         </div>
-        <div class="form-group">
+        <div class="form-group dd-field">
           <label>Horizon (years)</label>
           <input type="number" inputmode="numeric" step="1" min="1" max="60" value=${horizonYears}
             onInput=${e => setHorizonYears(e.target.value)}
-            onBlur=${() => persist({})} style=${{ width: 100 }} />
+            onBlur=${() => persist({})} />
         </div>
-        <div class="form-group">
+        <div class="form-group dd-field">
           <label>Year of birth</label>
           <input type="number" inputmode="numeric" step="1" min="1900" max="2100" value=${yearOfBirth}
             onInput=${e => setYearOfBirth(e.target.value)}
-            onBlur=${() => persist({})} style=${{ width: 100 }} />
+            onBlur=${() => persist({})} />
         </div>
-        <div class="form-group">
+        <div class="form-group dd-field">
           <label>Retirement age</label>
           <input type="number" inputmode="numeric" step="1" min="40" max="100" value=${retirementAge}
             onInput=${e => setRetirementAge(e.target.value)}
-            onBlur=${() => persist({})} style=${{ width: 100 }} />
+            onBlur=${() => persist({})} />
         </div>
-        <div class="form-group">
+        <div class="form-group dd-field">
           <label>Inflation (%)</label>
           <input type="number" inputmode="decimal" step="0.1" min="0" value=${inflationRate}
             onInput=${e => setInflationRate(e.target.value)}
-            onBlur=${() => persist({})} style=${{ width: 100 }} />
+            onBlur=${() => persist({})} />
         </div>
       </div>
       <div style=${{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: -4, marginBottom: 8 }}>
