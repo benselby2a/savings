@@ -1199,7 +1199,7 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
     for (const inc of incomeEntries) {
       if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) monthlyIncome += inc.annual / 12;
     }
-    balance = balance * (1 + monthlyRate) + monthlyIncome - monthlySpend;
+    balance = Math.max(0, balance * (1 + monthlyRate) + monthlyIncome - monthlySpend);
     const d = new Date(lastDate.getFullYear(), lastDate.getMonth() + m, lastDate.getDate());
     projected.push({ date: d.toISOString().slice(0, 10), _ts: d.getTime(), actual: null, projected: balance });
 
