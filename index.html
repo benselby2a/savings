@@ -187,7 +187,7 @@
   .snapshot-account { display: flex; align-items: center; gap: 8px; font-weight: 500; }
   .snapshot-color { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; }
   .snapshot-default { color: var(--color-default-tag); font-size: 0.7rem; white-space: nowrap; }
-  .chart-container { width: 100%; animation: fadeIn 0.6s ease; }
+  .chart-container { width: 100%; animation: fadeIn 0.6s ease; touch-action: pan-y; }
   .breakdown-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; padding: 4px 4px 14px; }
   .breakdown-summary-date { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); flex: 0 0 auto; }
   .breakdown-summary-items { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; flex: 1; }
@@ -1290,29 +1290,13 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
   return { rows, horizonBalance, depletionDate };
 }
 
-function DrawdownTooltip({ active, payload, label }) {
-  if (!active || !payload) return null;
-  const sorted = [...payload].filter(p => p.value != null).sort((a, b) => (b.value || 0) - (a.value || 0));
-  if (sorted.length === 0) return null;
-  return html`<div style=${{ background: 'var(--tooltip-bg)', border: 'none', borderRadius: 8, padding: '12px 16px', fontSize: '0.82rem', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-    <div style=${{ fontWeight: 600, marginBottom: 6, color: '#aaa', fontSize: '0.75rem', textTransform: 'uppercase' }}>${fmtDate(new Date(label).toISOString().slice(0, 10))}</div>
-    ${sorted.map(p => html`<div key=${p.dataKey} style=${{ display: 'flex', justifyContent: 'space-between', gap: 20, padding: '2px 0' }}>
-      <span style=${{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style=${{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }}></span>
-        ${p.name}
-      </span>
-      <span style=${{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>${GBP(p.value)}</span>
-    </div>`)}
-  </div>`;
-}
-
 const AGE_BANDS = [
   { toAge: 60, color: '#4CAF50' },
   { toAge: 75, color: '#FFC107' },
   { toAge: 100, color: '#FF9800' },
 ];
 
-function DrawdownChart({ data, categories, yearOfBirth, tc }) {
+function DrawdownChart({ data, categories, yearOfBirth, selectedIndex, onSelect, tc }) {
   if (data.length === 0) return html`<div class="empty-state">No data yet.</div>`;
 
   let ageBands = [];
@@ -1328,9 +1312,16 @@ function DrawdownChart({ data, categories, yearOfBirth, tc }) {
     }).filter(band => band.x2 > band.x1);
   }
 
+  const selectedTs = selectedIndex != null && data[selectedIndex] ? data[selectedIndex]._ts : null;
+
+  // No floating tooltip here on purpose — on touch devices a hover/tap
+  // tooltip tends to get stuck open with no reliable way to dismiss it.
+  // Tapping a point instead selects it; the breakdown panel below the
+  // chart shows the detail, and has its own explicit close button.
   return html`<div class="chart-container">
     <${ResponsiveContainer} width="100%" height=${400}>
-      <${ComposedChart} data=${data} margin=${{ top: 5, right: 20, left: 0, bottom: yearOfBirth ? 18 : 5 }}>
+      <${ComposedChart} data=${data} margin=${{ top: 5, right: 20, left: 0, bottom: yearOfBirth ? 18 : 5 }}
+        onClick=${(e) => { if (e && typeof e.activeTooltipIndex === 'number' && onSelect) onSelect(e.activeTooltipIndex); }}>
         <${CartesianGrid} strokeDasharray="3 3" stroke=${tc.grid} />
         ${ageBands.map(band => html`<${ReferenceArea} key=${band.toAge} x1=${band.x1} x2=${band.x2}
           fill=${band.color} fillOpacity=${0.08} ifOverflow="hidden" />`)}
@@ -1343,8 +1334,8 @@ function DrawdownChart({ data, categories, yearOfBirth, tc }) {
           tick=${{ fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${{ stroke: tc.axisLine }} tickLine=${false}
           interval="preserveStartEnd" label=${{ value: 'Age', position: 'insideBottomRight', fontSize: 10, fill: tc.axisTick, offset: -2 }} />`}
         <${YAxis} tickFormatter=${compactGBP} tick=${{ fontSize: 10, fill: tc.axisTick, fontFamily: 'inherit' }} axisLine=${false} tickLine=${false} width=${50} />
-        <${Tooltip} content=${html`<${DrawdownTooltip} />`} />
         <${ReferenceLine} y=${0} stroke=${tc.axisLine} strokeDasharray="3 3" />
+        ${selectedTs != null && html`<${ReferenceLine} x=${selectedTs} stroke=${tc.accent} strokeWidth=${1.5} />`}
         ${(categories || []).flatMap(cat => [
           html`<${Line} key=${cat} type="monotone" dataKey=${cat} name=${cat}
             stroke=${CATEGORY_COLORS[cat] || tc.axisTick} strokeWidth=${1.25} strokeOpacity=${0.4}
@@ -1354,9 +1345,9 @@ function DrawdownChart({ data, categories, yearOfBirth, tc }) {
             dot=${false} connectNulls=${true} isAnimationActive=${false} />`,
         ])}
         <${Line} type="monotone" dataKey="actual" name="Actual" stroke=${tc.totalLine} strokeWidth=${2.5}
-          dot=${false} connectNulls=${false} isAnimationActive=${false} />
+          dot=${false} connectNulls=${false} isAnimationActive=${false} activeDot=${{ r: 6, strokeWidth: 2, stroke: '#fff' }} />
         <${Line} type="monotone" dataKey="projected" name="Projected" stroke=${tc.accent} strokeWidth=${2.5}
-          strokeDasharray="6 4" dot=${false} connectNulls=${true} isAnimationActive=${false} />
+          strokeDasharray="6 4" dot=${false} connectNulls=${true} isAnimationActive=${false} activeDot=${{ r: 6, strokeWidth: 2, stroke: '#fff' }} />
       <//>
     <//>
   </div>`;
@@ -1431,41 +1422,46 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
   const history = useMemo(() => buildChartData(filteredAccounts, snapshots, null), [filteredAccounts, snapshots]);
 
-  const incomeEntries = useMemo(() => incomeOwners.flatMap(o => {
+  // Rich per-job list — the single source of truth for both the engine's flat
+  // income/contribution entries and the human-readable substantiation panel
+  // (which job was active in a given month, what it grossed, and where it went).
+  const jobEntries = useMemo(() => incomeOwners.flatMap(o => {
     const rec = incomes[o] || {};
     const job1Tax = rec.job1Tax !== '' && rec.job1Tax != null ? Number(rec.job1Tax) : DEFAULT_JOB_TAX_PCT;
     const job1Pension = Number(rec.job1Pension) || 0;
-    const job1Net = (Number(rec.job1) || 0) * (1 - job1Tax / 100 - job1Pension / 100);
+    const job1Gross = Number(rec.job1) || 0;
     const job1EndMonth = rec.job1Years ? Math.round(Number(rec.job1Years) * 12) : null;
-    const entries = [{ annual: job1Net, startMonth: 1, endMonth: job1EndMonth }];
-    const job2Annual = Number(rec.job2) || 0;
-    if (job1EndMonth != null && job2Annual > 0) {
+    const list = [{
+      owner: o, job: 1, gross: job1Gross, taxPct: job1Tax, pensionPct: job1Pension,
+      startMonth: 1, endMonth: job1EndMonth,
+      net: job1Gross * (1 - job1Tax / 100 - job1Pension / 100),
+      contribution: job1Gross * (job1Pension / 100),
+    }];
+    const job2Gross = Number(rec.job2) || 0;
+    if (job1EndMonth != null && job2Gross > 0) {
       const job2Tax = rec.job2Tax !== '' && rec.job2Tax != null ? Number(rec.job2Tax) : DEFAULT_JOB_TAX_PCT;
       const job2Pension = Number(rec.job2Pension) || 0;
-      const job2Net = job2Annual * (1 - job2Tax / 100 - job2Pension / 100);
       const job2EndMonth = rec.job2Years ? job1EndMonth + Math.round(Number(rec.job2Years) * 12) : null;
-      entries.push({ annual: job2Net, startMonth: job1EndMonth + 1, endMonth: job2EndMonth });
+      list.push({
+        owner: o, job: 2, gross: job2Gross, taxPct: job2Tax, pensionPct: job2Pension,
+        startMonth: job1EndMonth + 1, endMonth: job2EndMonth,
+        net: job2Gross * (1 - job2Tax / 100 - job2Pension / 100),
+        contribution: job2Gross * (job2Pension / 100),
+      });
     }
-    return entries;
+    return list;
   }), [incomes, incomeOwners]);
+
+  const incomeEntries = useMemo(() =>
+    jobEntries.filter(j => j.gross > 0).map(j => ({ annual: j.net, startMonth: j.startMonth, endMonth: j.endMonth })),
+    [jobEntries]);
 
   // Pension contributions: a configurable % of each job's gross income, paid
   // straight into the Pensions category each month (separate from take-home
   // income/spend) regardless of whether the pension is still locked.
-  const pensionContributionEntries = useMemo(() => incomeOwners.flatMap(o => {
-    const rec = incomes[o] || {};
-    const job1Pension = Number(rec.job1Pension) || 0;
-    const job1EndMonth = rec.job1Years ? Math.round(Number(rec.job1Years) * 12) : null;
-    const entries = [];
-    if (job1Pension > 0) entries.push({ annual: (Number(rec.job1) || 0) * (job1Pension / 100), startMonth: 1, endMonth: job1EndMonth });
-    const job2Pension = Number(rec.job2Pension) || 0;
-    const job2Annual = Number(rec.job2) || 0;
-    if (job1EndMonth != null && job2Annual > 0 && job2Pension > 0) {
-      const job2EndMonth = rec.job2Years ? job1EndMonth + Math.round(Number(rec.job2Years) * 12) : null;
-      entries.push({ annual: job2Annual * (job2Pension / 100), startMonth: job1EndMonth + 1, endMonth: job2EndMonth });
-    }
-    return entries;
-  }), [incomes, incomeOwners]);
+  const pensionContributionEntries = useMemo(() =>
+    jobEntries.filter(j => j.contribution > 0).map(j => ({ annual: j.contribution, startMonth: j.startMonth, endMonth: j.endMonth })),
+    [jobEntries]);
 
   const totalMonthlySpend = (Number(monthlyEssentials) || 0) + (Number(monthlyDiscretionary) || 0);
 
@@ -1543,6 +1539,34 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   }, [horizonBalance, inflationRate, horizonYears]);
 
   const startingBalance = history.length ? history[history.length - 1].total : 0;
+
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  useEffect(() => { setSelectedIndex(null); }, [chartSeries]);
+
+  // Month offset from the starting point (junction = 0) for the selected
+  // point, so the substantiation panel can re-derive what was active then.
+  const selectedMonth = useMemo(() => {
+    if (selectedIndex == null || !history.length) return null;
+    return selectedIndex - (history.length - 1);
+  }, [selectedIndex, history]);
+
+  const selectedRow = selectedIndex != null ? chartSeries[selectedIndex] : null;
+  const selectedDisplayRow = selectedIndex != null ? deflatedSeries[selectedIndex] : null;
+  const prevRow = selectedIndex != null && selectedIndex > 0 ? chartSeries[selectedIndex - 1] : null;
+
+  const selectedPensionLocked = selectedMonth != null && selectedMonth >= 1 && retirementMonth != null && selectedMonth < retirementMonth;
+
+  const selectedJobs = useMemo(() => {
+    if (selectedMonth == null || selectedMonth < 1) return [];
+    return jobEntries.filter(j => j.gross > 0 && selectedMonth >= j.startMonth && (j.endMonth == null || selectedMonth <= j.endMonth));
+  }, [jobEntries, selectedMonth]);
+
+  const selectedCategoryBreakdown = useMemo(() => {
+    if (!selectedRow) return [];
+    return chartCategories
+      .map(cat => ({ cat, amount: selectedRow[cat] ?? selectedRow[cat + '__proj'] ?? null }))
+      .filter(c => c.amount != null);
+  }, [selectedRow, chartCategories]);
 
   return html`<div>
     <div class="card">
@@ -1710,9 +1734,79 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       </div>
       <div class="chart-card-body">
         <${DrawdownChart} data=${deflatedSeries} categories=${chartCategories.length > 1 && showBreakdown ? chartCategories : []}
-          yearOfBirth=${Number(yearOfBirth) || null} tc=${tc} />
+          yearOfBirth=${Number(yearOfBirth) || null} selectedIndex=${selectedIndex} onSelect=${setSelectedIndex} tc=${tc} />
       </div>
+      ${!selectedIndex && selectedIndex !== 0 && html`<div style=${{ padding: '0 16px 12px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+        Tap a point on the chart to see how that figure was worked out.
+      </div>`}
     </div>
+
+    ${selectedRow && (() => {
+      const priorTotal = prevRow ? (prevRow.actual ?? prevRow.projected) : null;
+      const newTotalNominal = selectedRow.actual ?? selectedRow.projected;
+      const newTotalDisplay = selectedDisplayRow ? (selectedDisplayRow.actual ?? selectedDisplayRow.projected) : newTotalNominal;
+      const isDeflated = Math.abs(newTotalDisplay - newTotalNominal) > 0.5;
+      const growthAmount = priorTotal != null ? priorTotal * (Number(growthRate) / 100 / 12) : null;
+      const monthlyIncomeTotal = selectedJobs.reduce((s, j) => s + j.net / 12, 0);
+      const monthlyPensionTotal = selectedJobs.reduce((s, j) => s + j.contribution / 12, 0);
+      const age = Number(yearOfBirth) ? Math.floor((selectedRow._ts - new Date(Number(yearOfBirth), 0, 1).getTime()) / (365.2425 * 24 * 3600 * 1000)) : null;
+      const isProjected = selectedMonth != null && selectedMonth >= 1;
+
+      return html`<div class="card">
+        <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>Breakdown — ${fmtDate(selectedRow.date)}${age != null ? ` (age ${age})` : ''}</h2>
+          <button class="btn-secondary btn-sm" onClick=${() => setSelectedIndex(null)}>✕ Close</button>
+        </div>
+
+        <div class="stats-row" style=${{ padding: '8px 0 12px' }}>
+          <div class="stat">
+            <span class="stat-value">${GBP(Math.max(newTotalDisplay, 0))}</span>
+            <span class="stat-label">${isDeflated ? "Total (today's £)" : 'Total'}</span>
+          </div>
+          ${isDeflated && html`<div class="stat">
+            <span class="stat-value">${GBP(Math.max(newTotalNominal, 0))}</span>
+            <span class="stat-label">Total (nominal)</span>
+          </div>`}
+        </div>
+
+        ${selectedCategoryBreakdown.length > 1 && html`<div style=${{ marginBottom: 12 }}>
+          <div style=${{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>By savings type (nominal)</div>
+          ${selectedCategoryBreakdown.map(c => html`<div key=${c.cat} style=${{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: '0.85rem' }}>
+            <span style=${{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style=${{ width: 8, height: 8, borderRadius: '50%', background: CATEGORY_COLORS[c.cat] || tc.axisTick, display: 'inline-block' }}></span>
+              ${c.cat}
+            </span>
+            <span style=${{ fontVariantNumeric: 'tabular-nums' }}>${GBP(c.amount)}</span>
+          </div>`)}
+        </div>`}
+
+        ${isProjected
+          ? html`<div>
+              <div style=${{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>How this figure was reached</div>
+              <table style=${{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
+                <tbody>
+                  ${priorTotal != null && html`<tr><td style=${{ padding: '3px 0' }}>Prior balance</td><td style=${{ textAlign: 'right' }}>${GBP(priorTotal)}</td></tr>`}
+                  ${growthAmount != null && html`<tr><td style=${{ padding: '3px 0' }}>+ Growth (${growthRate}%/yr)</td><td style=${{ textAlign: 'right' }}>${GBP(growthAmount)}</td></tr>`}
+                  ${selectedJobs.map(j => html`<tr key=${j.owner + j.job}>
+                    <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% pension` : ''})</td>
+                    <td style=${{ textAlign: 'right' }}>${GBP(j.net / 12)}</td>
+                  </tr>`)}
+                  ${Number(monthlyEssentials) > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Essentials</td><td style=${{ textAlign: 'right' }}>${GBP(-Number(monthlyEssentials))}</td></tr>`}
+                  ${Number(monthlyDiscretionary) > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Discretionary</td><td style=${{ textAlign: 'right' }}>${GBP(-Number(monthlyDiscretionary))}</td></tr>`}
+                  ${monthlyPensionTotal > 0 && html`<tr><td style=${{ padding: '3px 0' }}>+ Pension contribution${selectedPensionLocked ? ' (locked — compounding only)' : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(monthlyPensionTotal)}</td></tr>`}
+                  <tr class="total-row"><td style=${{ padding: '4px 0', fontWeight: 600 }}>= Balance this month</td><td style=${{ textAlign: 'right', fontWeight: 600 }}>${GBP(newTotalNominal)}</td></tr>
+                </tbody>
+              </table>
+              ${retirementMonth != null && html`<div style=${{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6 }}>
+                Pension is ${selectedPensionLocked ? 'still locked at this point — it only compounds, nothing is drawn from it' : 'unlocked at this point and shares in the income/spend flow like any other savings type'}.
+              </div>`}
+              ${isDeflated && html`<div style=${{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                The figures above are nominal (nothing is pre-deflated); the chart and headline total show this in today's money using ${inflationRate}% inflation.
+              </div>`}
+            </div>`
+          : html`<div style=${{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>This is a recorded actual balance, not a modeled figure.</div>`}
+      </div>`;
+    })()}
   </div>`;
 }
 
