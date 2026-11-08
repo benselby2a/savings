@@ -594,16 +594,17 @@ function normalizeIncomes(rawIncomes, rawYears) {
       result[name] = {
         job1: val.job1 ?? '', job1Years: val.job1Years ?? '', job1Tax: val.job1Tax ?? '', job1Pension: val.job1Pension ?? '',
         job2: val.job2 ?? '', job2Years: val.job2Years ?? '', job2Tax: val.job2Tax ?? '', job2Pension: val.job2Pension ?? '',
+        statePension: val.statePension ?? '',
       };
     } else {
-      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job1Tax: '', job1Pension: '', job2: '', job2Years: '', job2Tax: '', job2Pension: '' };
+      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job1Tax: '', job1Pension: '', job2: '', job2Years: '', job2Tax: '', job2Pension: '', statePension: '' };
     }
   }
   return result;
 }
 
 function useDrawdownAssumptions(supabase) {
-  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, horizon_years: 20, year_of_birth: 1989, retirement_age: 65, inflation_rate: 4, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
+  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, horizon_years: 20, year_of_birth: 1989, retirement_age: 65, state_pension_age: 67, inflation_rate: 4, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
   const [assumptions, setAssumptions] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
@@ -622,6 +623,7 @@ function useDrawdownAssumptions(supabase) {
           horizon_years: Number(data.horizon_years),
           year_of_birth: data.year_of_birth != null ? Number(data.year_of_birth) : DEFAULTS.year_of_birth,
           retirement_age: data.retirement_age != null ? Number(data.retirement_age) : DEFAULTS.retirement_age,
+          state_pension_age: data.state_pension_age != null ? Number(data.state_pension_age) : DEFAULTS.state_pension_age,
           inflation_rate: data.inflation_rate != null ? Number(data.inflation_rate) : DEFAULTS.inflation_rate,
           included_categories: data.included_categories && data.included_categories.length > 0 ? data.included_categories : DEFAULTS.included_categories,
         });
@@ -1191,7 +1193,12 @@ function DataTable({ accounts, data, selectedIds, tc }) {
 
 // ── Draw Down Modeller ───────────────────────────────────────────
 
-// incomeEntries: [{ annual, startMonth, endMonth }], endMonth null = indefinite.
+// incomeEntries: [{ annual, startMonth, endMonth, inflationAdjusted }], endMonth
+// null = indefinite. inflationAdjusted entries (e.g. State Pension) grow with
+// inflationRatePct from the starting point; plain job income stays flat nominal.
+// monthlySpend is the BASE (today's) monthly figure — it's inflated by
+// inflationRatePct internally the same way, so real spending power stays
+// constant unless the inputs say otherwise.
 // pensionContributionEntries: same shape, added directly to the pension
 // category's balance each month (on top of its growth, whether locked or
 // not) rather than into the general income/spend flow.
@@ -1208,7 +1215,7 @@ function DataTable({ accounts, data, selectedIds, tc }) {
 // not just a cosmetic split.
 // Simulates past the chosen horizon (up to a 70y hard cap) when needed to reach
 // the point the balance actually depletes, so that point is always visible.
-function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears, categoryBalances, pensionCategory, retirementMonth, pensionContributionEntries) {
+function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears, categoryBalances, pensionCategory, retirementMonth, pensionContributionEntries, inflationRatePct) {
   const monthlyRate = growthRatePct / 100 / 12;
   const rows = history.map(h => ({ date: h.date, _ts: new Date(h.date).getTime(), actual: h.total, projected: null }));
 
@@ -1237,16 +1244,22 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
   let depletionDate = null;
   const projected = [];
 
+  const inflationRate = Number(inflationRatePct) || 0;
+  const inflationFactorAt = (m) => inflationRate === 0 ? 1 : Math.pow(1 + inflationRate / 100, m / 12);
+
   for (let m = 1; m <= maxMonths; m++) {
     let monthlyIncome = 0;
     for (const inc of incomeEntries) {
-      if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) monthlyIncome += inc.annual / 12;
+      if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) {
+        monthlyIncome += (inc.annual / 12) * (inc.inflationAdjusted ? inflationFactorAt(m) : 1);
+      }
     }
     let monthlyPensionContribution = 0;
     for (const inc of (pensionContributionEntries || [])) {
       if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) monthlyPensionContribution += inc.annual / 12;
     }
-    const flow = monthlyIncome - monthlySpend;
+    const spendThisMonth = monthlySpend * inflationFactorAt(m);
+    const flow = monthlyIncome - spendThisMonth;
 
     const row = { date: null, _ts: null, actual: null, projected: null };
     if (catKeys.length) {
@@ -1365,6 +1378,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const [horizonYears, setHorizonYears] = useState(assumptions.horizon_years);
   const [yearOfBirth, setYearOfBirth] = useState(assumptions.year_of_birth);
   const [retirementAge, setRetirementAge] = useState(assumptions.retirement_age);
+  const [statePensionAge, setStatePensionAge] = useState(assumptions.state_pension_age);
   const [inflationRate, setInflationRate] = useState(assumptions.inflation_rate);
   const [includedCategories, setIncludedCategories] = useState(assumptions.included_categories);
   const [showBreakdown, setShowBreakdown] = useState(true);
@@ -1378,6 +1392,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     setHorizonYears(assumptions.horizon_years);
     setYearOfBirth(assumptions.year_of_birth);
     setRetirementAge(assumptions.retirement_age);
+    setStatePensionAge(assumptions.state_pension_age);
     setInflationRate(assumptions.inflation_rate);
     setIncludedCategories(assumptions.included_categories);
   }, [assumptions]);
@@ -1391,6 +1406,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       horizon_years: Math.max(1, Number(horizonYears) || 1),
       year_of_birth: Number(yearOfBirth) || 1989,
       retirement_age: Number(retirementAge) || 65,
+      state_pension_age: Number(statePensionAge) || 67,
       inflation_rate: Number(inflationRate) || 0,
       included_categories: includedCategories,
       ...patch,
@@ -1489,22 +1505,38 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     return result;
   }, [categoryHistories, chartCategories]);
 
-  // Months from the starting point until retirement age is reached (null if
-  // year of birth or retirement age isn't set, in which case the Pensions
-  // category is never locked — same behavior as before this feature existed).
-  const retirementMonth = useMemo(() => {
+  // Months from the starting point until a given age is reached (null if year
+  // of birth or that age isn't set).
+  const lastDate = history.length ? new Date(history[history.length - 1].date) : new Date();
+  const monthsUntilAge = (age) => {
     const yob = Number(yearOfBirth);
-    const age = Number(retirementAge);
     if (!yob || !age) return null;
-    const lastDate = history.length ? new Date(history[history.length - 1].date) : new Date();
-    const retireDate = new Date(yob + age, 0, 1);
-    const months = (retireDate.getFullYear() - lastDate.getFullYear()) * 12 + (retireDate.getMonth() - lastDate.getMonth());
+    const targetDate = new Date(yob + age, 0, 1);
+    const months = (targetDate.getFullYear() - lastDate.getFullYear()) * 12 + (targetDate.getMonth() - lastDate.getMonth());
     return Math.max(0, months);
-  }, [yearOfBirth, retirementAge, history]);
+  };
+
+  // Retirement age gates when Pensions can be drawn down (see buildDrawdownSeries).
+  const retirementMonth = useMemo(() => monthsUntilAge(Number(retirementAge)), [yearOfBirth, retirementAge, history]);
+
+  // State Pension: a fixed, index-linked income per owner starting at state
+  // pension age, continuing indefinitely. Grows with inflation like the real
+  // thing, unlike job income which stays flat nominal.
+  const statePensionMonth = useMemo(() => monthsUntilAge(Number(statePensionAge)), [yearOfBirth, statePensionAge, history]);
+
+  const statePensionEntries = useMemo(() => {
+    if (statePensionMonth == null) return [];
+    return incomeOwners
+      .map(o => ({ owner: o, annual: Number((incomes[o] || {}).statePension) || 0 }))
+      .filter(sp => sp.annual > 0)
+      .map(sp => ({ annual: sp.annual, startMonth: statePensionMonth, endMonth: null, inflationAdjusted: true }));
+  }, [incomeOwners, incomes, statePensionMonth]);
+
+  const allIncomeEntries = useMemo(() => [...incomeEntries, ...statePensionEntries], [incomeEntries, statePensionEntries]);
 
   const { rows: series, horizonBalance, depletionDate } = useMemo(() =>
-    buildDrawdownSeries(history, incomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1), categoryStartBalances, 'Pensions', retirementMonth, pensionContributionEntries),
-    [history, incomeEntries, totalMonthlySpend, growthRate, horizonYears, categoryStartBalances, retirementMonth, pensionContributionEntries]);
+    buildDrawdownSeries(history, allIncomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1), categoryStartBalances, 'Pensions', retirementMonth, pensionContributionEntries, Number(inflationRate) || 0),
+    [history, allIncomeEntries, totalMonthlySpend, growthRate, horizonYears, categoryStartBalances, retirementMonth, pensionContributionEntries, inflationRate]);
 
   const chartSeries = useMemo(() => {
     const byDate = {};
@@ -1560,6 +1592,18 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     if (selectedMonth == null || selectedMonth < 1) return [];
     return jobEntries.filter(j => j.gross > 0 && selectedMonth >= j.startMonth && (j.endMonth == null || selectedMonth <= j.endMonth));
   }, [jobEntries, selectedMonth]);
+
+  const selectedInflationFactor = selectedMonth != null && selectedMonth >= 1
+    ? Math.pow(1 + (Number(inflationRate) || 0) / 100, selectedMonth / 12)
+    : 1;
+
+  const selectedStatePensions = useMemo(() => {
+    if (selectedMonth == null || selectedMonth < 1 || statePensionMonth == null || selectedMonth < statePensionMonth) return [];
+    return incomeOwners
+      .map(o => ({ owner: o, annual: Number((incomes[o] || {}).statePension) || 0 }))
+      .filter(sp => sp.annual > 0)
+      .map(sp => ({ ...sp, monthly: (sp.annual / 12) * selectedInflationFactor }));
+  }, [incomeOwners, incomes, selectedMonth, statePensionMonth, selectedInflationFactor]);
 
   const selectedCategoryBreakdown = useMemo(() => {
     if (!selectedRow) return [];
@@ -1644,6 +1688,15 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   onBlur=${() => persist({})} />
               </div>
             </div>
+            <div class="form-row" style=${{ flexWrap: 'wrap' }}>
+              <div class="form-group dd-field">
+                <label>State Pension (£/yr)</label>
+                <input type="number" inputmode="decimal" min="0" step="100" placeholder="Optional"
+                  value=${rec.statePension ?? ''}
+                  onInput=${e => updateIncome(o, 'statePension', e.target.value)}
+                  onBlur=${() => persist({})} />
+              </div>
+            </div>
           </div>`;
         })()}
       </div>`}
@@ -1685,6 +1738,12 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
             onBlur=${() => persist({})} />
         </div>
         <div class="form-group dd-field">
+          <label>State pension age</label>
+          <input type="number" inputmode="numeric" step="1" min="40" max="100" value=${statePensionAge}
+            onInput=${e => setStatePensionAge(e.target.value)}
+            onBlur=${() => persist({})} />
+        </div>
+        <div class="form-group dd-field">
           <label>Inflation (%)</label>
           <input type="number" inputmode="decimal" step="0.1" min="0" value=${inflationRate}
             onInput=${e => setInflationRate(e.target.value)}
@@ -1692,7 +1751,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
         </div>
       </div>
       <div style=${{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: -4, marginBottom: 8 }}>
-        Pensions are only drawn down from retirement age onward (they still grow until then). Actual history is shown as recorded; the projected line is shown in today's money using the inflation rate.
+        Pensions are only drawn down from retirement age onward (they still grow until then). Each owner's State Pension (optional) starts at state pension age and grows with inflation, unlike job income which stays flat. Essentials and discretionary spend also grow with inflation each year. Actual history is shown as recorded; the projected line and its stats are shown in today's money using the inflation rate.
       </div>
       <div class="form-group" style=${{ marginTop: 8 }}>
         <label>Savings types included</label>
@@ -1791,8 +1850,12 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                     <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% pension` : ''})</td>
                     <td style=${{ textAlign: 'right' }}>${GBP(j.net / 12)}</td>
                   </tr>`)}
-                  ${Number(monthlyEssentials) > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Essentials</td><td style=${{ textAlign: 'right' }}>${GBP(-Number(monthlyEssentials))}</td></tr>`}
-                  ${Number(monthlyDiscretionary) > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Discretionary</td><td style=${{ textAlign: 'right' }}>${GBP(-Number(monthlyDiscretionary))}</td></tr>`}
+                  ${selectedStatePensions.map(sp => html`<tr key=${'sp-' + sp.owner}>
+                    <td style=${{ padding: '3px 0' }}>+ ${sp.owner} State Pension (inflation-linked)</td>
+                    <td style=${{ textAlign: 'right' }}>${GBP(sp.monthly)}</td>
+                  </tr>`)}
+                  ${Number(monthlyEssentials) > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Essentials${selectedInflationFactor > 1.001 ? ` (${GBP(monthlyEssentials)} + inflation)` : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(-Number(monthlyEssentials) * selectedInflationFactor)}</td></tr>`}
+                  ${Number(monthlyDiscretionary) > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Discretionary${selectedInflationFactor > 1.001 ? ` (${GBP(monthlyDiscretionary)} + inflation)` : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(-Number(monthlyDiscretionary) * selectedInflationFactor)}</td></tr>`}
                   ${monthlyPensionTotal > 0 && html`<tr><td style=${{ padding: '3px 0' }}>+ Pension contribution${selectedPensionLocked ? ' (locked — compounding only)' : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(monthlyPensionTotal)}</td></tr>`}
                   <tr class="total-row"><td style=${{ padding: '4px 0', fontWeight: 600 }}>= Balance this month</td><td style=${{ textAlign: 'right', fontWeight: 600 }}>${GBP(newTotalNominal)}</td></tr>
                 </tbody>
