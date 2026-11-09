@@ -1384,6 +1384,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const [inflationRate, setInflationRate] = useState(assumptions.inflation_rate);
   const [includedCategories, setIncludedCategories] = useState(assumptions.included_categories);
   const [showBreakdown, setShowBreakdown] = useState(true);
+  const [showRealTerms, setShowRealTerms] = useState(true);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -1611,11 +1612,12 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   }, [incomeOwners, incomes, selectedMonth, statePensionMonth, selectedInflationFactor]);
 
   const selectedCategoryBreakdown = useMemo(() => {
-    if (!selectedRow) return [];
+    const row = showRealTerms ? selectedDisplayRow : selectedRow;
+    if (!row) return [];
     return chartCategories
-      .map(cat => ({ cat, amount: selectedRow[cat] ?? selectedRow[cat + '__proj'] ?? null }))
+      .map(cat => ({ cat, amount: row[cat] ?? row[cat + '__proj'] ?? null }))
       .filter(c => c.amount != null);
-  }, [selectedRow, chartCategories]);
+  }, [selectedRow, selectedDisplayRow, showRealTerms, chartCategories]);
 
   return html`<div>
     <div class="card">
@@ -1768,6 +1770,13 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       </div>
     </div>
 
+    ${Number(inflationRate) > 0 && html`<div style=${{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 2px 10px' }}>
+      <label style=${{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+        <input type="checkbox" checked=${showRealTerms} onChange=${e => setShowRealTerms(e.target.checked)} />
+        Show figures in today's money (unticked = future, inflated £) — applies to the stats, chart and breakdown below
+      </label>
+    </div>`}
+
     ${accounts.length > 0 && html`<div class="chart-card">
       <div class="stats-row" style=${{ paddingTop: 16 }}>
         <div class="stat">
@@ -1775,8 +1784,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
           <span class="stat-label">Current total</span>
         </div>
         <div class="stat">
-          <span class="stat-value">${GBP(Math.max(deflatedHorizonBalance, 0))}</span>
-          <span class="stat-label">Projected in ${horizonYears}y${Number(inflationRate) ? ' (today’s £)' : ''}</span>
+          <span class="stat-value">${GBP(Math.max(showRealTerms ? deflatedHorizonBalance : horizonBalance, 0))}</span>
+          <span class="stat-label">Projected in ${horizonYears}y${Number(inflationRate) ? (showRealTerms ? " (today's £)" : ' (future £)') : ''}</span>
         </div>
         <div class="stat">
           <span class=${'stat-change ' + (depletionDate ? 'negative' : 'positive')}>
@@ -1797,7 +1806,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
         </button>`}
       </div>
       <div class="chart-card-body">
-        <${DrawdownChart} data=${deflatedSeries} categories=${chartCategories.length > 1 && showBreakdown ? chartCategories : []}
+        <${DrawdownChart} data=${showRealTerms ? deflatedSeries : chartSeries} categories=${chartCategories.length > 1 && showBreakdown ? chartCategories : []}
           yearOfBirth=${Number(yearOfBirth) || null} selectedIndex=${selectedIndex} onSelect=${setSelectedIndex} tc=${tc} />
       </div>
       ${!selectedIndex && selectedIndex !== 0 && html`<div style=${{ padding: '0 16px 12px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -1806,14 +1815,31 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     </div>
 
     ${selectedRow && (() => {
-      const priorTotal = prevRow ? (prevRow.actual ?? prevRow.projected) : null;
-      const newTotalNominal = selectedRow.actual ?? selectedRow.projected;
-      const newTotalDisplay = selectedDisplayRow ? (selectedDisplayRow.actual ?? selectedDisplayRow.projected) : newTotalNominal;
-      const isDeflated = Math.abs(newTotalDisplay - newTotalNominal) > 0.5;
-      const growthAmount = priorTotal != null ? priorTotal * (Number(growthRate) / 100 / 12) : null;
-      const monthlyPensionTotal = selectedJobs.reduce((s, j) => s + (j.contribution / 12) * selectedInflationFactor, 0);
+      const modeSuffix = Number(inflationRate) ? (showRealTerms ? " (today's £)" : ' (future £)') : '';
+      const prevDisplayRow = selectedIndex != null && selectedIndex > 0 ? deflatedSeries[selectedIndex - 1] : null;
+      const priorTotal = showRealTerms
+        ? (prevDisplayRow ? (prevDisplayRow.actual ?? prevDisplayRow.projected) : null)
+        : (prevRow ? (prevRow.actual ?? prevRow.projected) : null);
+      const newTotal = showRealTerms
+        ? (selectedDisplayRow.actual ?? selectedDisplayRow.projected)
+        : (selectedRow.actual ?? selectedRow.projected);
       const age = Number(yearOfBirth) ? Math.floor((selectedRow._ts - new Date(Number(yearOfBirth), 0, 1).getTime()) / (365.2425 * 24 * 3600 * 1000)) : null;
       const isProjected = selectedMonth != null && selectedMonth >= 1;
+
+      // In today's-money mode these are the base (today's) figures; in
+      // future-money mode they're inflated to what they'll actually be then.
+      // Growth is whatever's left to reconcile prior → new exactly in
+      // whichever mode is selected, rather than reapplying the nominal rate
+      // to a (possibly real-terms) prior balance.
+      const flowFactor = showRealTerms ? 1 : selectedInflationFactor;
+      const jobLines = selectedJobs.map(j => ({ ...j, monthly: (j.net / 12) * flowFactor, contributionMonthly: (j.contribution / 12) * flowFactor }));
+      const statePensionLines = selectedStatePensions.map(sp => ({ ...sp, monthly: (sp.annual / 12) * flowFactor }));
+      const essentialsAmt = Number(monthlyEssentials) * flowFactor;
+      const discretionaryAmt = Number(monthlyDiscretionary) * flowFactor;
+      const pensionContribTotal = jobLines.reduce((s, j) => s + j.contributionMonthly, 0);
+      const netFlow = jobLines.reduce((s, j) => s + j.monthly, 0) + statePensionLines.reduce((s, sp) => s + sp.monthly, 0)
+        - essentialsAmt - discretionaryAmt + pensionContribTotal;
+      const growthAmount = priorTotal != null ? newTotal - priorTotal - netFlow : null;
 
       return html`<div class="card">
         <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1823,17 +1849,13 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
         <div class="stats-row" style=${{ padding: '8px 0 12px' }}>
           <div class="stat">
-            <span class="stat-value">${GBP(Math.max(newTotalDisplay, 0))}</span>
-            <span class="stat-label">${isDeflated ? "Total (today's £)" : 'Total'}</span>
+            <span class="stat-value">${GBP(Math.max(newTotal, 0))}</span>
+            <span class="stat-label">Total${modeSuffix}</span>
           </div>
-          ${isDeflated && html`<div class="stat">
-            <span class="stat-value">${GBP(Math.max(newTotalNominal, 0))}</span>
-            <span class="stat-label">Total (nominal)</span>
-          </div>`}
         </div>
 
         ${selectedCategoryBreakdown.length > 1 && html`<div style=${{ marginBottom: 12 }}>
-          <div style=${{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>By savings type (nominal)</div>
+          <div style=${{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>By savings type${modeSuffix}</div>
           ${selectedCategoryBreakdown.map(c => html`<div key=${c.cat} style=${{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: '0.85rem' }}>
             <span style=${{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style=${{ width: 8, height: 8, borderRadius: '50%', background: CATEGORY_COLORS[c.cat] || tc.axisTick, display: 'inline-block' }}></span>
@@ -1845,30 +1867,27 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
         ${isProjected
           ? html`<div>
-              <div style=${{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>How this figure was reached</div>
+              <div style=${{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>How this figure was reached${modeSuffix}</div>
               <table style=${{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
                 <tbody>
                   ${priorTotal != null && html`<tr><td style=${{ padding: '3px 0' }}>Prior balance</td><td style=${{ textAlign: 'right' }}>${GBP(priorTotal)}</td></tr>`}
-                  ${growthAmount != null && html`<tr><td style=${{ padding: '3px 0' }}>+ Growth (${growthRate}%/yr)</td><td style=${{ textAlign: 'right' }}>${GBP(growthAmount)}</td></tr>`}
-                  ${selectedJobs.map(j => html`<tr key=${j.owner + j.job}>
-                    <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% pension` : ''}${selectedInflationFactor > 1.001 ? ', inflated' : ''})</td>
-                    <td style=${{ textAlign: 'right' }}>${GBP((j.net / 12) * selectedInflationFactor)}</td>
+                  ${growthAmount != null && html`<tr><td style=${{ padding: '3px 0' }}>+ Growth</td><td style=${{ textAlign: 'right' }}>${GBP(growthAmount)}</td></tr>`}
+                  ${jobLines.map(j => html`<tr key=${j.owner + j.job}>
+                    <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% pension` : ''})</td>
+                    <td style=${{ textAlign: 'right' }}>${GBP(j.monthly)}</td>
                   </tr>`)}
-                  ${selectedStatePensions.map(sp => html`<tr key=${'sp-' + sp.owner}>
-                    <td style=${{ padding: '3px 0' }}>+ ${sp.owner} State Pension (inflation-linked)</td>
+                  ${statePensionLines.map(sp => html`<tr key=${'sp-' + sp.owner}>
+                    <td style=${{ padding: '3px 0' }}>+ ${sp.owner} State Pension</td>
                     <td style=${{ textAlign: 'right' }}>${GBP(sp.monthly)}</td>
                   </tr>`)}
-                  ${Number(monthlyEssentials) > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Essentials${selectedInflationFactor > 1.001 ? ` (${GBP(monthlyEssentials)} + inflation)` : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(-Number(monthlyEssentials) * selectedInflationFactor)}</td></tr>`}
-                  ${Number(monthlyDiscretionary) > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Discretionary${selectedInflationFactor > 1.001 ? ` (${GBP(monthlyDiscretionary)} + inflation)` : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(-Number(monthlyDiscretionary) * selectedInflationFactor)}</td></tr>`}
-                  ${monthlyPensionTotal > 0 && html`<tr><td style=${{ padding: '3px 0' }}>+ Pension contribution${selectedPensionLocked ? ' (locked — compounding only)' : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(monthlyPensionTotal)}</td></tr>`}
-                  <tr class="total-row"><td style=${{ padding: '4px 0', fontWeight: 600 }}>= Balance this month</td><td style=${{ textAlign: 'right', fontWeight: 600 }}>${GBP(newTotalNominal)}</td></tr>
+                  ${essentialsAmt > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Essentials</td><td style=${{ textAlign: 'right' }}>${GBP(-essentialsAmt)}</td></tr>`}
+                  ${discretionaryAmt > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Discretionary</td><td style=${{ textAlign: 'right' }}>${GBP(-discretionaryAmt)}</td></tr>`}
+                  ${pensionContribTotal > 0 && html`<tr><td style=${{ padding: '3px 0' }}>+ Pension contribution${selectedPensionLocked ? ' (locked — compounding only)' : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(pensionContribTotal)}</td></tr>`}
+                  <tr class="total-row"><td style=${{ padding: '4px 0', fontWeight: 600 }}>= Balance this month</td><td style=${{ textAlign: 'right', fontWeight: 600 }}>${GBP(newTotal)}</td></tr>
                 </tbody>
               </table>
               ${retirementMonth != null && html`<div style=${{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6 }}>
                 Pension is ${selectedPensionLocked ? 'still locked at this point — it only compounds, nothing is drawn from it' : 'unlocked at this point and shares in the income/spend flow like any other savings type'}.
-              </div>`}
-              ${isDeflated && html`<div style=${{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                The figures above are nominal (nothing is pre-deflated); the chart and headline total show this in today's money using ${inflationRate}% inflation.
               </div>`}
             </div>`
           : html`<div style=${{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>This is a recorded actual balance, not a modeled figure.</div>`}
