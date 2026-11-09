@@ -1256,7 +1256,9 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
     }
     let monthlyPensionContribution = 0;
     for (const inc of (pensionContributionEntries || [])) {
-      if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) monthlyPensionContribution += inc.annual / 12;
+      if (m >= inc.startMonth && (inc.endMonth == null || m <= inc.endMonth)) {
+        monthlyPensionContribution += (inc.annual / 12) * (inc.inflationAdjusted ? inflationFactorAt(m) : 1);
+      }
     }
     const spendThisMonth = monthlySpend * inflationFactorAt(m);
     const flow = monthlyIncome - spendThisMonth;
@@ -1468,15 +1470,18 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     return list;
   }), [incomes, incomeOwners]);
 
+  // Job income grows with inflation (same as spend and State Pension), so
+  // real take-home pay stays level by default rather than eroding over time.
   const incomeEntries = useMemo(() =>
-    jobEntries.filter(j => j.gross > 0).map(j => ({ annual: j.net, startMonth: j.startMonth, endMonth: j.endMonth })),
+    jobEntries.filter(j => j.gross > 0).map(j => ({ annual: j.net, startMonth: j.startMonth, endMonth: j.endMonth, inflationAdjusted: true })),
     [jobEntries]);
 
   // Pension contributions: a configurable % of each job's gross income, paid
   // straight into the Pensions category each month (separate from take-home
-  // income/spend) regardless of whether the pension is still locked.
+  // income/spend) regardless of whether the pension is still locked. Grows
+  // with inflation too, since it's a percentage of that same growing income.
   const pensionContributionEntries = useMemo(() =>
-    jobEntries.filter(j => j.contribution > 0).map(j => ({ annual: j.contribution, startMonth: j.startMonth, endMonth: j.endMonth })),
+    jobEntries.filter(j => j.contribution > 0).map(j => ({ annual: j.contribution, startMonth: j.startMonth, endMonth: j.endMonth, inflationAdjusted: true })),
     [jobEntries]);
 
   const totalMonthlySpend = (Number(monthlyEssentials) || 0) + (Number(monthlyDiscretionary) || 0);
@@ -1520,8 +1525,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const retirementMonth = useMemo(() => monthsUntilAge(Number(retirementAge)), [yearOfBirth, retirementAge, history]);
 
   // State Pension: a fixed, index-linked income per owner starting at state
-  // pension age, continuing indefinitely. Grows with inflation like the real
-  // thing, unlike job income which stays flat nominal.
+  // pension age, continuing indefinitely, growing with inflation like job
+  // income and spend.
   const statePensionMonth = useMemo(() => monthsUntilAge(Number(statePensionAge)), [yearOfBirth, statePensionAge, history]);
 
   const statePensionEntries = useMemo(() => {
@@ -1751,7 +1756,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
         </div>
       </div>
       <div style=${{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: -4, marginBottom: 8 }}>
-        Pensions are only drawn down from retirement age onward (they still grow until then). Each owner's State Pension (optional) starts at state pension age and grows with inflation, unlike job income which stays flat. Essentials and discretionary spend also grow with inflation each year. Actual history is shown as recorded; the projected line and its stats are shown in today's money using the inflation rate.
+        Pensions are only drawn down from retirement age onward (they still grow until then). Job income, pension contributions, State Pension (optional, from state pension age) and spend all grow with the inflation rate each year, so real amounts stay level by default. Actual history is shown as recorded; the projected line and its stats are shown in today's money using the inflation rate.
       </div>
       <div class="form-group" style=${{ marginTop: 8 }}>
         <label>Savings types included</label>
@@ -1806,8 +1811,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       const newTotalDisplay = selectedDisplayRow ? (selectedDisplayRow.actual ?? selectedDisplayRow.projected) : newTotalNominal;
       const isDeflated = Math.abs(newTotalDisplay - newTotalNominal) > 0.5;
       const growthAmount = priorTotal != null ? priorTotal * (Number(growthRate) / 100 / 12) : null;
-      const monthlyIncomeTotal = selectedJobs.reduce((s, j) => s + j.net / 12, 0);
-      const monthlyPensionTotal = selectedJobs.reduce((s, j) => s + j.contribution / 12, 0);
+      const monthlyPensionTotal = selectedJobs.reduce((s, j) => s + (j.contribution / 12) * selectedInflationFactor, 0);
       const age = Number(yearOfBirth) ? Math.floor((selectedRow._ts - new Date(Number(yearOfBirth), 0, 1).getTime()) / (365.2425 * 24 * 3600 * 1000)) : null;
       const isProjected = selectedMonth != null && selectedMonth >= 1;
 
@@ -1847,8 +1851,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   ${priorTotal != null && html`<tr><td style=${{ padding: '3px 0' }}>Prior balance</td><td style=${{ textAlign: 'right' }}>${GBP(priorTotal)}</td></tr>`}
                   ${growthAmount != null && html`<tr><td style=${{ padding: '3px 0' }}>+ Growth (${growthRate}%/yr)</td><td style=${{ textAlign: 'right' }}>${GBP(growthAmount)}</td></tr>`}
                   ${selectedJobs.map(j => html`<tr key=${j.owner + j.job}>
-                    <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% pension` : ''})</td>
-                    <td style=${{ textAlign: 'right' }}>${GBP(j.net / 12)}</td>
+                    <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% pension` : ''}${selectedInflationFactor > 1.001 ? ', inflated' : ''})</td>
+                    <td style=${{ textAlign: 'right' }}>${GBP((j.net / 12) * selectedInflationFactor)}</td>
                   </tr>`)}
                   ${selectedStatePensions.map(sp => html`<tr key=${'sp-' + sp.owner}>
                     <td style=${{ padding: '3px 0' }}>+ ${sp.owner} State Pension (inflation-linked)</td>
