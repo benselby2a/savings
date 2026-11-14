@@ -592,19 +592,19 @@ function normalizeIncomes(rawIncomes, rawYears) {
   for (const [name, val] of Object.entries(rawIncomes || {})) {
     if (val && typeof val === 'object') {
       result[name] = {
-        job1: val.job1 ?? '', job1Years: val.job1Years ?? '', job1Tax: val.job1Tax ?? '', job1Pension: val.job1Pension ?? '',
-        job2: val.job2 ?? '', job2Years: val.job2Years ?? '', job2Tax: val.job2Tax ?? '', job2Pension: val.job2Pension ?? '',
+        job1: val.job1 ?? '', job1Years: val.job1Years ?? '', job1Tax: val.job1Tax ?? '', job1Pension: val.job1Pension ?? '', job1Employer: val.job1Employer ?? '',
+        job2: val.job2 ?? '', job2Years: val.job2Years ?? '', job2Tax: val.job2Tax ?? '', job2Pension: val.job2Pension ?? '', job2Employer: val.job2Employer ?? '',
         statePension: val.statePension ?? '',
       };
     } else {
-      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job1Tax: '', job1Pension: '', job2: '', job2Years: '', job2Tax: '', job2Pension: '', statePension: '' };
+      result[name] = { job1: val ?? '', job1Years: (rawYears || {})[name] ?? '', job1Tax: '', job1Pension: '', job1Employer: '', job2: '', job2Years: '', job2Tax: '', job2Pension: '', job2Employer: '', statePension: '' };
     }
   }
   return result;
 }
 
 function useDrawdownAssumptions(supabase) {
-  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, horizon_years: 20, year_of_birth: 1989, retirement_age: 65, state_pension_age: 67, inflation_rate: 4, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
+  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, horizon_years: 20, year_of_birth: 1989, retirement_age: 65, state_pension_age: 67, inflation_rate: 4, category_growth: {}, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
   const [assumptions, setAssumptions] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
@@ -625,6 +625,7 @@ function useDrawdownAssumptions(supabase) {
           retirement_age: data.retirement_age != null ? Number(data.retirement_age) : DEFAULTS.retirement_age,
           state_pension_age: data.state_pension_age != null ? Number(data.state_pension_age) : DEFAULTS.state_pension_age,
           inflation_rate: data.inflation_rate != null ? Number(data.inflation_rate) : DEFAULTS.inflation_rate,
+          category_growth: data.category_growth || {},
           included_categories: data.included_categories && data.included_categories.length > 0 ? data.included_categories : DEFAULTS.included_categories,
         });
       }
@@ -634,7 +635,8 @@ function useDrawdownAssumptions(supabase) {
 
   const save = async (next) => {
     setAssumptions(next);
-    await supabase.from('drawdown_assumptions').upsert({ id: 'default', ...next, updated_at: new Date().toISOString() });
+    const { error } = await supabase.from('drawdown_assumptions').upsert({ id: 'default', ...next, updated_at: new Date().toISOString() });
+    if (error) throw error;
   };
 
   return { assumptions, loading, save };
@@ -1193,6 +1195,8 @@ function DataTable({ accounts, data, selectedIds, tc }) {
 
 // ── Draw Down Modeller ───────────────────────────────────────────
 
+// categoryGrowthPct: optional { [category]: annual % } overriding growthRatePct for
+// that category; categories not listed use growthRatePct.
 // incomeEntries: [{ annual, startMonth, endMonth, inflationAdjusted }], endMonth
 // null = indefinite. inflationAdjusted entries (e.g. State Pension) grow with
 // inflationRatePct from the starting point; plain job income stays flat nominal.
@@ -1215,8 +1219,12 @@ function DataTable({ accounts, data, selectedIds, tc }) {
 // not just a cosmetic split.
 // Simulates past the chosen horizon (up to a 70y hard cap) when needed to reach
 // the point the balance actually depletes, so that point is always visible.
-function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears, categoryBalances, pensionCategory, retirementMonth, pensionContributionEntries, inflationRatePct) {
+function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct, horizonYears, categoryBalances, pensionCategory, retirementMonth, pensionContributionEntries, inflationRatePct, categoryGrowthPct) {
   const monthlyRate = growthRatePct / 100 / 12;
+  const monthlyRateFor = (k) => {
+    const g = categoryGrowthPct && categoryGrowthPct[k];
+    return g == null ? monthlyRate : g / 100 / 12;
+  };
   const rows = history.map(h => ({ date: h.date, _ts: new Date(h.date).getTime(), actual: h.total, projected: null }));
 
   const lastDate = history.length ? new Date(history[history.length - 1].date) : new Date();
@@ -1272,10 +1280,10 @@ function buildDrawdownSeries(history, incomeEntries, monthlySpend, growthRatePct
       for (const k of catKeys) {
         const contribution = k === pensionCategory ? monthlyPensionContribution : 0;
         if (pensionLocked && k === pensionCategory) {
-          nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRate) + contribution);
+          nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRateFor(k)) + contribution);
         } else {
           const share = prevFlowTotal > 0 ? catBalances[k] / prevFlowTotal : 1 / flowKeys.length;
-          nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRate) + flow * share + contribution);
+          nextCatBalances[k] = Math.max(0, catBalances[k] * (1 + monthlyRateFor(k)) + flow * share + contribution);
         }
         row[k + '__proj'] = nextCatBalances[k];
       }
@@ -1382,10 +1390,12 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const [retirementAge, setRetirementAge] = useState(assumptions.retirement_age);
   const [statePensionAge, setStatePensionAge] = useState(assumptions.state_pension_age);
   const [inflationRate, setInflationRate] = useState(assumptions.inflation_rate);
+  const [categoryGrowth, setCategoryGrowth] = useState(assumptions.category_growth);
   const [includedCategories, setIncludedCategories] = useState(assumptions.included_categories);
   const [showBreakdown, setShowBreakdown] = useState(true);
   const [showRealTerms, setShowRealTerms] = useState(true);
   const [message, setMessage] = useState('');
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     setIncomes(assumptions.incomes);
@@ -1397,11 +1407,13 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     setRetirementAge(assumptions.retirement_age);
     setStatePensionAge(assumptions.state_pension_age);
     setInflationRate(assumptions.inflation_rate);
+    setCategoryGrowth(assumptions.category_growth);
     setIncludedCategories(assumptions.included_categories);
   }, [assumptions]);
 
   const persist = async (patch) => {
-    await onSave({
+    try {
+      await onSave({
       incomes,
       growth_rate: Number(growthRate) || 0,
       monthly_essentials: Number(monthlyEssentials) || 0,
@@ -1411,11 +1423,16 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       retirement_age: Number(retirementAge) || 65,
       state_pension_age: Number(statePensionAge) || 67,
       inflation_rate: Number(inflationRate) || 0,
+      category_growth: categoryGrowth,
       included_categories: includedCategories,
       ...patch,
-    });
-    setMessage('Saved');
-    setTimeout(() => setMessage(''), 1500);
+      });
+      setSaveError('');
+      setMessage('Saved');
+      setTimeout(() => setMessage(''), 1500);
+    } catch (err) {
+      setSaveError('Not saved: ' + (err.message || 'unknown error') + ' - a database migration may be missing');
+    }
   };
 
   const updateIncome = (owner, field, value) => {
@@ -1448,24 +1465,26 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     const rec = incomes[o] || {};
     const job1Tax = rec.job1Tax !== '' && rec.job1Tax != null ? Number(rec.job1Tax) : DEFAULT_JOB_TAX_PCT;
     const job1Pension = Number(rec.job1Pension) || 0;
+    const job1Employer = Number(rec.job1Employer) || 0;
     const job1Gross = Number(rec.job1) || 0;
     const job1EndMonth = rec.job1Years ? Math.round(Number(rec.job1Years) * 12) : null;
     const list = [{
-      owner: o, job: 1, gross: job1Gross, taxPct: job1Tax, pensionPct: job1Pension,
+      owner: o, job: 1, gross: job1Gross, taxPct: job1Tax, pensionPct: job1Pension, employerPct: job1Employer,
       startMonth: 1, endMonth: job1EndMonth,
       net: job1Gross * (1 - job1Tax / 100 - job1Pension / 100),
-      contribution: job1Gross * (job1Pension / 100),
+      contribution: job1Gross * ((job1Pension + job1Employer) / 100),
     }];
     const job2Gross = Number(rec.job2) || 0;
     if (job1EndMonth != null && job2Gross > 0) {
       const job2Tax = rec.job2Tax !== '' && rec.job2Tax != null ? Number(rec.job2Tax) : DEFAULT_JOB_TAX_PCT;
       const job2Pension = Number(rec.job2Pension) || 0;
+      const job2Employer = Number(rec.job2Employer) || 0;
       const job2EndMonth = rec.job2Years ? job1EndMonth + Math.round(Number(rec.job2Years) * 12) : null;
       list.push({
-        owner: o, job: 2, gross: job2Gross, taxPct: job2Tax, pensionPct: job2Pension,
+        owner: o, job: 2, gross: job2Gross, taxPct: job2Tax, pensionPct: job2Pension, employerPct: job2Employer,
         startMonth: job1EndMonth + 1, endMonth: job2EndMonth,
         net: job2Gross * (1 - job2Tax / 100 - job2Pension / 100),
-        contribution: job2Gross * (job2Pension / 100),
+        contribution: job2Gross * ((job2Pension + job2Employer) / 100),
       });
     }
     return list;
@@ -1540,9 +1559,20 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
   const allIncomeEntries = useMemo(() => [...incomeEntries, ...statePensionEntries], [incomeEntries, statePensionEntries]);
 
+  // Per-type growth overrides: only the types with a number entered; blank
+  // means "use the overall growth rate".
+  const categoryGrowthPct = useMemo(() => {
+    const out = {};
+    for (const c of CATEGORIES) {
+      const v = categoryGrowth[c];
+      if (v !== '' && v != null && !isNaN(Number(v))) out[c] = Number(v);
+    }
+    return out;
+  }, [categoryGrowth]);
+
   const { rows: series, horizonBalance, depletionDate } = useMemo(() =>
-    buildDrawdownSeries(history, allIncomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1), categoryStartBalances, 'Pensions', retirementMonth, pensionContributionEntries, Number(inflationRate) || 0),
-    [history, allIncomeEntries, totalMonthlySpend, growthRate, horizonYears, categoryStartBalances, retirementMonth, pensionContributionEntries, inflationRate]);
+    buildDrawdownSeries(history, allIncomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1), categoryStartBalances, 'Pensions', retirementMonth, pensionContributionEntries, Number(inflationRate) || 0, categoryGrowthPct),
+    [history, allIncomeEntries, totalMonthlySpend, growthRate, horizonYears, categoryStartBalances, retirementMonth, pensionContributionEntries, inflationRate, categoryGrowthPct]);
 
   const chartSeries = useMemo(() => {
     const byDate = {};
@@ -1625,6 +1655,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
         <h2>Assumptions</h2>
         ${message && html`<span class="success">${message}</span>`}
       </div>
+      ${saveError && html`<div style=${{ color: 'var(--color-error)', fontSize: '0.8rem', marginBottom: 8 }}>${saveError}</div>`}
       ${incomeOwners.length > 0 && html`<div style=${{ marginBottom: 12 }}>
         <div style=${{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
           ${incomeOwners.map(o => html`<button key=${o} type="button"
@@ -1658,10 +1689,17 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   onBlur=${() => persist({})} />
               </div>
               <div class="form-group dd-field">
-                <label>Job 1 pension (%)</label>
+                <label>Job 1 your pension (%)</label>
                 <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder="0"
                   value=${rec.job1Pension ?? ''}
                   onInput=${e => updateIncome(o, 'job1Pension', e.target.value)}
+                  onBlur=${() => persist({})} />
+              </div>
+              <div class="form-group dd-field">
+                <label>Job 1 employer pension (%)</label>
+                <input type="number" inputmode="decimal" min="0" max="100" step="0.5" placeholder="0"
+                  value=${rec.job1Employer ?? ''}
+                  onInput=${e => updateIncome(o, 'job1Employer', e.target.value)}
                   onBlur=${() => persist({})} />
               </div>
             </div>
@@ -1688,10 +1726,17 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   onBlur=${() => persist({})} />
               </div>
               <div class="form-group dd-field">
-                <label>Job 2 pension (%)</label>
+                <label>Job 2 your pension (%)</label>
                 <input type="number" inputmode="numeric" min="0" max="100" step="1" placeholder="0"
                   value=${rec.job2Pension ?? ''}
                   onInput=${e => updateIncome(o, 'job2Pension', e.target.value)}
+                  onBlur=${() => persist({})} />
+              </div>
+              <div class="form-group dd-field">
+                <label>Job 2 employer pension (%)</label>
+                <input type="number" inputmode="decimal" min="0" max="100" step="0.5" placeholder="0"
+                  value=${rec.job2Employer ?? ''}
+                  onInput=${e => updateIncome(o, 'job2Employer', e.target.value)}
                   onBlur=${() => persist({})} />
               </div>
             </div>
@@ -1709,7 +1754,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       </div>`}
       <div class="form-row" style=${{ flexWrap: 'wrap' }}>
         <div class="form-group dd-field">
-          <label>Annual growth rate (%)</label>
+          <label>Default growth rate (%)</label>
           <input type="number" inputmode="decimal" step="0.1" value=${growthRate}
             onInput=${e => setGrowthRate(e.target.value)}
             onBlur=${() => persist({})} />
@@ -1766,6 +1811,18 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
           ${CATEGORIES.map(c => html`<button key=${c} type="button"
             class=${'range-btn' + (includedCategories.includes(c) ? ' active' : '')}
             onClick=${() => toggleCategory(c)}>${c}</button>`)}
+        </div>
+      </div>
+      <div style=${{ marginTop: 8 }}>
+        <div style=${{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Growth by savings type (%) — blank uses the default</div>
+        <div class="form-row" style=${{ flexWrap: 'wrap' }}>
+          ${CATEGORIES.filter(c => includedCategories.includes(c)).map(c => html`<div class="form-group dd-field" key=${c}>
+            <label>${c}</label>
+            <input type="number" inputmode="decimal" step="0.1" placeholder=${String(growthRate)}
+              value=${categoryGrowth[c] ?? ''}
+              onInput=${e => setCategoryGrowth(prev => ({ ...prev, [c]: e.target.value }))}
+              onBlur=${() => persist({})} />
+          </div>`)}
         </div>
       </div>
     </div>
@@ -1837,6 +1894,11 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       const essentialsAmt = Number(monthlyEssentials) * flowFactor;
       const discretionaryAmt = Number(monthlyDiscretionary) * flowFactor;
       const pensionContribTotal = jobLines.reduce((s, j) => s + j.contributionMonthly, 0);
+      const personalPct = jobLines.filter(j => j.pensionPct).map(j => `${j.owner} J${j.job} ${j.pensionPct}%`);
+      const employerPct = jobLines.filter(j => j.employerPct).map(j => `${j.owner} J${j.job} ${j.employerPct}%`);
+      const pensionSplitNote = (personalPct.length || employerPct.length)
+        ? ` (${[personalPct.length ? 'you: ' + personalPct.join(', ') : '', employerPct.length ? 'employer: ' + employerPct.join(', ') : ''].filter(Boolean).join('; ')})`
+        : '';
       const netFlow = jobLines.reduce((s, j) => s + j.monthly, 0) + statePensionLines.reduce((s, sp) => s + sp.monthly, 0)
         - essentialsAmt - discretionaryAmt + pensionContribTotal;
       const growthAmount = priorTotal != null ? newTotal - priorTotal - netFlow : null;
@@ -1873,7 +1935,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   ${priorTotal != null && html`<tr><td style=${{ padding: '3px 0' }}>Prior balance</td><td style=${{ textAlign: 'right' }}>${GBP(priorTotal)}</td></tr>`}
                   ${growthAmount != null && html`<tr><td style=${{ padding: '3px 0' }}>+ Growth</td><td style=${{ textAlign: 'right' }}>${GBP(growthAmount)}</td></tr>`}
                   ${jobLines.map(j => html`<tr key=${j.owner + j.job}>
-                    <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% pension` : ''})</td>
+                    <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% your pension` : ''})</td>
                     <td style=${{ textAlign: 'right' }}>${GBP(j.monthly)}</td>
                   </tr>`)}
                   ${statePensionLines.map(sp => html`<tr key=${'sp-' + sp.owner}>
@@ -1882,7 +1944,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   </tr>`)}
                   ${essentialsAmt > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Essentials</td><td style=${{ textAlign: 'right' }}>${GBP(-essentialsAmt)}</td></tr>`}
                   ${discretionaryAmt > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Discretionary</td><td style=${{ textAlign: 'right' }}>${GBP(-discretionaryAmt)}</td></tr>`}
-                  ${pensionContribTotal > 0 && html`<tr><td style=${{ padding: '3px 0' }}>+ Pension contribution${selectedPensionLocked ? ' (locked — compounding only)' : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(pensionContribTotal)}</td></tr>`}
+                  ${pensionContribTotal > 0 && html`<tr><td style=${{ padding: '3px 0' }}>+ Pension contribution${pensionSplitNote}${selectedPensionLocked ? ' (locked — compounding only)' : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(pensionContribTotal)}</td></tr>`}
                   <tr class="total-row"><td style=${{ padding: '4px 0', fontWeight: 600 }}>= Balance this month</td><td style=${{ textAlign: 'right', fontWeight: 600 }}>${GBP(newTotal)}</td></tr>
                 </tbody>
               </table>

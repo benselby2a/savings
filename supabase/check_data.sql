@@ -24,7 +24,8 @@ expected(tbl, col, ord) as (values
   ('drawdown_assumptions','monthly_discretionary',307), ('drawdown_assumptions','horizon_years',308),
   ('drawdown_assumptions','year_of_birth',309), ('drawdown_assumptions','retirement_age',310),
   ('drawdown_assumptions','state_pension_age',311), ('drawdown_assumptions','inflation_rate',312),
-  ('drawdown_assumptions','included_categories',313), ('drawdown_assumptions','updated_at',314)
+  ('drawdown_assumptions','included_categories',313), ('drawdown_assumptions','updated_at',314),
+  ('drawdown_assumptions','category_growth',315)
 ),
 src(tbl, j) as (
   select 'accounts', to_jsonb(t) from savings.accounts t
