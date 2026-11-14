@@ -174,6 +174,9 @@
   .dd-card { border: 1px solid var(--border-main); border-radius: 4px; padding: 8px 10px 10px; margin-bottom: 8px; }
   .dd-card-title { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 6px; }
   .dd-card-note { font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.8; }
+  .stat-toggle { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
+  .stat-toggle { white-space: nowrap; }
+  .stat-toggle input[type=checkbox] { width: 13px; height: 13px; flex: 0 0 auto; margin: 0; padding: 0; accent-color: var(--accent); }
   .dd-help { font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; }
   table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
   th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border-table); }
@@ -614,7 +617,7 @@ function normalizeIncomes(rawIncomes, rawYears) {
 }
 
 function useDrawdownAssumptions(supabase) {
-  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, horizon_years: 20, year_of_birth: 1989, retirement_age: 65, state_pension_age: 67, inflation_rate: 4, category_growth: {}, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
+  const DEFAULTS = { incomes: {}, growth_rate: 4, monthly_essentials: 0, monthly_discretionary: 0, year_of_birth: 1989, retirement_age: 65, state_pension_age: 67, inflation_rate: 4, category_growth: {}, included_categories: CATEGORIES.filter(c => !PP_CATEGORIES.includes(c)) };
   const [assumptions, setAssumptions] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
@@ -630,7 +633,6 @@ function useDrawdownAssumptions(supabase) {
           growth_rate: Number(data.growth_rate),
           monthly_essentials: essentials === 0 && discretionary === 0 && legacySpend > 0 ? legacySpend : essentials,
           monthly_discretionary: discretionary,
-          horizon_years: Number(data.horizon_years),
           year_of_birth: data.year_of_birth != null ? Number(data.year_of_birth) : DEFAULTS.year_of_birth,
           retirement_age: data.retirement_age != null ? Number(data.retirement_age) : DEFAULTS.retirement_age,
           state_pension_age: data.state_pension_age != null ? Number(data.state_pension_age) : DEFAULTS.state_pension_age,
@@ -1387,6 +1389,9 @@ function DrawdownChart({ data, categories, yearOfBirth, selectedIndex, onSelect,
 }
 
 const DEFAULT_JOB_TAX_PCT = 50;
+// Minimum span of the projection chart / the "Projected in Ny" stat. The chart
+// extends further automatically (to 5 years past depletion) when needed.
+const HORIZON_YEARS = 30;
 
 function DdSection({ title, summary, open, onToggle, children }) {
   return html`<div class="dd-section">
@@ -1406,7 +1411,6 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   const [growthRate, setGrowthRate] = useState(assumptions.growth_rate);
   const [monthlyEssentials, setMonthlyEssentials] = useState(assumptions.monthly_essentials);
   const [monthlyDiscretionary, setMonthlyDiscretionary] = useState(assumptions.monthly_discretionary);
-  const [horizonYears, setHorizonYears] = useState(assumptions.horizon_years);
   const [yearOfBirth, setYearOfBirth] = useState(assumptions.year_of_birth);
   const [retirementAge, setRetirementAge] = useState(assumptions.retirement_age);
   const [statePensionAge, setStatePensionAge] = useState(assumptions.state_pension_age);
@@ -1428,7 +1432,6 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
     setGrowthRate(assumptions.growth_rate);
     setMonthlyEssentials(assumptions.monthly_essentials);
     setMonthlyDiscretionary(assumptions.monthly_discretionary);
-    setHorizonYears(assumptions.horizon_years);
     setYearOfBirth(assumptions.year_of_birth);
     setRetirementAge(assumptions.retirement_age);
     setStatePensionAge(assumptions.state_pension_age);
@@ -1444,7 +1447,6 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       growth_rate: Number(growthRate) || 0,
       monthly_essentials: Number(monthlyEssentials) || 0,
       monthly_discretionary: Number(monthlyDiscretionary) || 0,
-      horizon_years: Math.max(1, Number(horizonYears) || 1),
       year_of_birth: Number(yearOfBirth) || 1989,
       retirement_age: Number(retirementAge) || 65,
       state_pension_age: Number(statePensionAge) || 67,
@@ -1609,8 +1611,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
   }, [categoryGrowth]);
 
   const { rows: series, horizonBalance, depletionDate } = useMemo(() =>
-    buildDrawdownSeries(history, allIncomeEntries, totalMonthlySpend, Number(growthRate) || 0, Math.max(1, Number(horizonYears) || 1), categoryStartBalances, 'Pensions', retirementMonth, pensionContributionEntries, Number(inflationRate) || 0, categoryGrowthPct),
-    [history, allIncomeEntries, totalMonthlySpend, growthRate, horizonYears, categoryStartBalances, retirementMonth, pensionContributionEntries, inflationRate, categoryGrowthPct]);
+    buildDrawdownSeries(history, allIncomeEntries, totalMonthlySpend, Number(growthRate) || 0, HORIZON_YEARS, categoryStartBalances, 'Pensions', retirementMonth, pensionContributionEntries, Number(inflationRate) || 0, categoryGrowthPct),
+    [history, allIncomeEntries, totalMonthlySpend, growthRate, categoryStartBalances, retirementMonth, pensionContributionEntries, inflationRate, categoryGrowthPct]);
 
   const chartSeries = useMemo(() => {
     const byDate = {};
@@ -1639,10 +1641,9 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
 
   const deflatedHorizonBalance = useMemo(() => {
     const rate = Number(inflationRate) || 0;
-    const years = Number(horizonYears) || 0;
-    if (rate === 0 || years <= 0) return horizonBalance;
-    return horizonBalance / Math.pow(1 + rate / 100, years);
-  }, [horizonBalance, inflationRate, horizonYears]);
+    if (rate === 0) return horizonBalance;
+    return horizonBalance / Math.pow(1 + rate / 100, HORIZON_YEARS);
+  }, [horizonBalance, inflationRate]);
 
   const startingBalance = history.length ? history[history.length - 1].total : 0;
 
@@ -1743,12 +1744,11 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
         </div>
       <//>
 
-      <${DdSection} title="Ages & timing" summary=${`born ${yearOfBirth} · retire ${retirementAge} · SP ${statePensionAge} · ${horizonYears}y`} open=${openSections.timing} onToggle=${() => toggleSection('timing')}>
+      <${DdSection} title="Ages & timing" summary=${`born ${yearOfBirth} · retire ${retirementAge} · SP ${statePensionAge}`} open=${openSections.timing} onToggle=${() => toggleSection('timing')}>
         <div class="dd-grid">
           ${field('Year of birth', yearOfBirth, setYearOfBirth, { inputmode: 'numeric', min: 1900, max: 2100 })}
           ${field('Retirement age', retirementAge, setRetirementAge, { inputmode: 'numeric', min: 40, max: 100 })}
           ${field('State pension age', statePensionAge, setStatePensionAge, { inputmode: 'numeric', min: 40, max: 100 })}
-          ${field('Horizon (years)', horizonYears, setHorizonYears, { inputmode: 'numeric', min: 1, max: 60 })}
         </div>
         <div class="dd-help">Pensions are only drawn down from retirement age onward; until then they just keep growing.</div>
       <//>
@@ -1762,22 +1762,19 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
       <//>
     </div>
 
-    ${Number(inflationRate) > 0 && html`<div style=${{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 2px 10px' }}>
-      <label style=${{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
-        <input type="checkbox" checked=${showRealTerms} onChange=${e => setShowRealTerms(e.target.checked)} />
-        Show figures in today's money (unticked = future, inflated £) — applies to the stats, chart and breakdown below
-      </label>
-    </div>`}
-
     ${accounts.length > 0 && html`<div class="chart-card">
       <div class="stats-row" style=${{ paddingTop: 16 }}>
         <div class="stat">
           <span class="stat-value">${GBP(startingBalance)}</span>
           <span class="stat-label">Current total</span>
+          ${Number(inflationRate) > 0 && html`<label class="stat-toggle" title="Unticked shows future, inflated pounds. Applies to the stats, chart and breakdown.">
+            <input type="checkbox" checked=${showRealTerms} onChange=${e => setShowRealTerms(e.target.checked)} />
+            Today's money
+          </label>`}
         </div>
         <div class="stat">
           <span class="stat-value">${GBP(Math.max(showRealTerms ? deflatedHorizonBalance : horizonBalance, 0))}</span>
-          <span class="stat-label">Projected in ${horizonYears}y${Number(inflationRate) ? (showRealTerms ? " (today's £)" : ' (future £)') : ''}</span>
+          <span class="stat-label">Projected in ${HORIZON_YEARS}y${Number(inflationRate) ? (showRealTerms ? " (today's £)" : ' (future £)') : ''}</span>
         </div>
         <div class="stat">
           <span class=${'stat-change ' + (depletionDate ? 'negative' : 'positive')}>
@@ -1836,7 +1833,12 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
         : '';
       const netFlow = jobLines.reduce((s, j) => s + j.monthly, 0) + statePensionLines.reduce((s, sp) => s + sp.monthly, 0)
         - essentialsAmt - discretionaryAmt + pensionContribTotal;
-      const growthAmount = priorTotal != null ? newTotal - priorTotal - netFlow : null;
+      // Once savings are exhausted the balance is floored at zero, so the
+      // reconciling amount isn't growth - it's spend the savings can't cover.
+      const exhausted = priorTotal != null && priorTotal <= 0.5 && newTotal <= 0.5 && netFlow < 0;
+      const growthAmount = priorTotal == null ? null : exhausted ? 0 : newTotal - priorTotal - netFlow;
+      const netChange = priorTotal != null ? newTotal - priorTotal : null;
+      const signedGBP = (v) => (v < 0 ? '−' : '+') + GBP(Math.abs(v));
 
       return html`<div class="card">
         <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1849,6 +1851,10 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
             <span class="stat-value">${GBP(Math.max(newTotal, 0))}</span>
             <span class="stat-label">Total${modeSuffix}</span>
           </div>
+          ${isProjected && netChange != null && html`<div class="stat">
+            <span class=${'stat-value stat-change ' + (netChange >= 0 ? 'positive' : 'negative')}>${signedGBP(netChange)}</span>
+            <span class="stat-label">Net change this month</span>
+          </div>`}
         </div>
 
         ${selectedCategoryBreakdown.length > 1 && html`<div style=${{ marginBottom: 12 }}>
@@ -1868,7 +1874,8 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
               <table style=${{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
                 <tbody>
                   ${priorTotal != null && html`<tr><td style=${{ padding: '3px 0' }}>Prior balance</td><td style=${{ textAlign: 'right' }}>${GBP(priorTotal)}</td></tr>`}
-                  ${growthAmount != null && html`<tr><td style=${{ padding: '3px 0' }}>+ Growth</td><td style=${{ textAlign: 'right' }}>${GBP(growthAmount)}</td></tr>`}
+                  ${exhausted && html`<tr><td style=${{ padding: '3px 0' }}>+ Spend not covered (savings exhausted)</td><td style=${{ textAlign: 'right' }}>${GBP(-netFlow)}</td></tr>`}
+                  ${growthAmount != null && !exhausted && html`<tr><td style=${{ padding: '3px 0' }}>+ Growth</td><td style=${{ textAlign: 'right' }}>${GBP(growthAmount)}</td></tr>`}
                   ${jobLines.map(j => html`<tr key=${j.owner + j.job}>
                     <td style=${{ padding: '3px 0' }}>+ ${j.owner} Job ${j.job} income (net of ${j.taxPct}% tax${j.pensionPct ? `, ${j.pensionPct}% your pension` : ''})</td>
                     <td style=${{ textAlign: 'right' }}>${GBP(j.monthly)}</td>
@@ -1880,6 +1887,7 @@ function DrawdownModeller({ accounts, snapshots, ownerNames, assumptions, onSave
                   ${essentialsAmt > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Essentials</td><td style=${{ textAlign: 'right' }}>${GBP(-essentialsAmt)}</td></tr>`}
                   ${discretionaryAmt > 0 && html`<tr><td style=${{ padding: '3px 0' }}>− Discretionary</td><td style=${{ textAlign: 'right' }}>${GBP(-discretionaryAmt)}</td></tr>`}
                   ${pensionContribTotal > 0 && html`<tr><td style=${{ padding: '3px 0' }}>+ Pension contribution${pensionSplitNote}${selectedPensionLocked ? ' (locked — compounding only)' : ''}</td><td style=${{ textAlign: 'right' }}>${GBP(pensionContribTotal)}</td></tr>`}
+                  ${netChange != null && html`<tr style=${{ borderTop: '1px solid var(--border-main)', fontWeight: 600, color: netChange >= 0 ? 'var(--color-positive)' : 'var(--color-negative)' }}><td style=${{ padding: '4px 0' }}>Net change this month</td><td style=${{ textAlign: 'right' }}>${signedGBP(netChange)}</td></tr>`}
                   <tr class="total-row"><td style=${{ padding: '4px 0', fontWeight: 600 }}>= Balance this month</td><td style=${{ textAlign: 'right', fontWeight: 600 }}>${GBP(newTotal)}</td></tr>
                 </tbody>
               </table>
